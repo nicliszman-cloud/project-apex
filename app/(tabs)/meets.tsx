@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: theme.colors.surface, borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.border },
   photo: { height: 190 },
   photoImg: { resizeMode: 'cover' },
-  shade: { ...StyleSheet.absoluteFillObject as any, backgroundColor: 'rgba(0,0,0,.18)' },
+  shade: { ...StyleSheet.absoluteFill as any, backgroundColor: 'rgba(0,0,0,.18)' },
   badge: { position: 'absolute', top: 13, left: 13, backgroundColor: 'rgba(0,0,0,.65)', paddingHorizontal: 11, paddingVertical: 7, borderRadius: 99 },
   badgeText: { color: 'white', fontWeight: '900', fontSize: 11 },
   body: { padding: 16 },
