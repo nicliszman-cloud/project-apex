@@ -1,0 +1,60 @@
+import { useEffect, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { router } from 'expo-router';
+import { Screen } from '@/components/Screen';
+import { useApp } from '@/context/AppContext';
+import { theme } from '@/lib/theme';
+
+export default function ProfileEditScreen() {
+  const { profile, updateProfile, signOut, isDemo } = useApp();
+  const [displayName, setDisplayName] = useState('');
+  const [username, setUsername] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [bio, setBio] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setDisplayName(profile?.displayName ?? '');
+    setUsername(profile?.username ?? '');
+    setCity(profile?.city ?? '');
+    setState(profile?.state ?? '');
+    setBio(profile?.bio ?? '');
+  }, [profile]);
+
+  async function save() {
+    if (!displayName.trim()) return Alert.alert('Nome obrigatório', 'Informe como você quer aparecer no APEX.');
+    setSaving(true);
+    try {
+      await updateProfile({ displayName: displayName.trim(), username: username.trim(), city: city.trim(), state: state.trim().toUpperCase(), bio: bio.trim() });
+      Alert.alert('Perfil salvo', isDemo ? 'Atualizado no modo demo.' : 'As informações foram salvas no Supabase.');
+      router.replace('/(tabs)/garage');
+    } catch (error: any) {
+      Alert.alert('Não foi possível salvar', error?.message ?? 'Tente novamente.');
+    } finally { setSaving(false); }
+  }
+
+  async function logout() {
+    await signOut();
+    router.replace('/auth');
+  }
+
+  return (
+    <Screen>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.top}><Pressable onPress={() => router.back()}><Text style={styles.back}>‹</Text></Pressable><Text style={styles.title}>Seu perfil</Text></View>
+        <Text style={styles.sub}>Essas informações aparecem na sua garagem e nos seus carros.</Text>
+        <Text style={styles.label}>Nome</Text><TextInput style={styles.input} value={displayName} onChangeText={setDisplayName} placeholder="Seu nome" placeholderTextColor={theme.colors.muted}/>
+        <Text style={styles.label}>@username</Text><TextInput style={styles.input} value={username} onChangeText={(v) => setUsername(v.replace(/\s/g, '').toLowerCase())} autoCapitalize="none" placeholder="seuusuario" placeholderTextColor={theme.colors.muted}/>
+        <View style={styles.row}><View style={{ flex: 1 }}><Text style={styles.label}>Cidade</Text><TextInput style={styles.input} value={city} onChangeText={setCity} placeholder="Cascavel" placeholderTextColor={theme.colors.muted}/></View><View style={{ width: 90 }}><Text style={styles.label}>UF</Text><TextInput style={styles.input} value={state} onChangeText={setState} maxLength={2} autoCapitalize="characters" placeholder="PR" placeholderTextColor={theme.colors.muted}/></View></View>
+        <Text style={styles.label}>Bio</Text><TextInput style={[styles.input, styles.bio]} value={bio} onChangeText={setBio} multiline maxLength={240} placeholder="Conte um pouco sobre seu gosto por carros..." placeholderTextColor={theme.colors.muted}/>
+        <Pressable style={styles.save} onPress={save} disabled={saving}><Text style={styles.saveText}>{saving ? 'Salvando...' : 'Salvar perfil'}</Text></Pressable>
+        <Pressable style={styles.logout} onPress={logout}><Text style={styles.logoutText}>{isDemo ? 'Sair do modo demo' : 'Sair da conta'}</Text></Pressable>
+      </ScrollView>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: { padding: 20, paddingBottom: 40 }, top: { flexDirection: 'row', alignItems: 'center' }, back: { color: 'white', fontSize: 38, marginRight: 12, marginTop: -4 }, title: { color: 'white', fontSize: 29, fontWeight: '900' }, sub: { color: theme.colors.muted, marginTop: 7, lineHeight: 20 }, label: { color: '#D8DADE', fontWeight: '800', fontSize: 12, marginTop: 18, marginBottom: 7 }, input: { backgroundColor: theme.colors.surface, color: 'white', borderWidth: 1, borderColor: theme.colors.border, borderRadius: 14, padding: 14 }, row: { flexDirection: 'row', gap: 12 }, bio: { minHeight: 110, textAlignVertical: 'top' }, save: { backgroundColor: theme.colors.accent, padding: 16, borderRadius: 15, alignItems: 'center', marginTop: 24 }, saveText: { color: 'white', fontWeight: '900', fontSize: 15 }, logout: { borderWidth: 1, borderColor: '#513034', padding: 15, borderRadius: 15, alignItems: 'center', marginTop: 12 }, logoutText: { color: '#F07880', fontWeight: '900' },
+});

@@ -1,5 +1,15 @@
 export type CarCategory = 'JDM' | 'Euro' | 'Muscle' | 'Supercar' | 'Hot Hatch' | 'Track';
 
+export type Profile = {
+  id: string;
+  username?: string | null;
+  displayName: string;
+  avatarUrl?: string | null;
+  city?: string | null;
+  state?: string | null;
+  bio?: string | null;
+};
+
 export type Car = {
   id: string;
   ownerId: string;

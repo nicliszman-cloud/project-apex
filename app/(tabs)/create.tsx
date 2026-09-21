@@ -6,29 +6,41 @@ import { useApp } from '@/context/AppContext';
 import { theme } from '@/lib/theme';
 
 export default function CreateScreen() {
-  const { addCar } = useApp();
+  const { addCar, profile, isDemo } = useApp();
   const [make, setMake] = useState('');
   const [model, setModel] = useState('');
   const [year, setYear] = useState('');
   const [hp, setHp] = useState('');
+  const [engine, setEngine] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  function save() {
-    if (!make || !model || !year) return Alert.alert('Falta pouco', 'Preencha marca, modelo e ano.');
-    addCar({ make, model, year: Number(year), engine: 'Não informado', transmission: 'Não informado', drivetrain: 'RWD', stockHp: Number(hp || 0), currentHp: Number(hp || 0), city: 'Sua cidade', state: 'BR', category: 'Euro', image: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1400&q=85', modifications: [], tags: ['Novo projeto'] });
-    Alert.alert('Carro adicionado', 'Ele já aparece na sua garagem demo.');
-    router.replace('/(tabs)/garage');
+  async function save() {
+    if (!make.trim() || !model.trim() || !year.trim()) return Alert.alert('Falta pouco', 'Preencha marca, modelo e ano.');
+    setSaving(true);
+    try {
+      await addCar({
+        make: make.trim(), model: model.trim(), year: Number(year), engine: engine.trim() || 'Não informado', transmission: 'Não informado', drivetrain: 'RWD',
+        stockHp: Number(hp || 0), currentHp: Number(hp || 0), city: profile?.city || 'Não informado', state: profile?.state || 'BR', category: 'Euro',
+        image: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1400&q=85', modifications: [], tags: ['Novo projeto'],
+      });
+      Alert.alert('Carro adicionado', isDemo ? 'Ele já aparece na sua garagem demo.' : 'O carro foi salvo no Supabase e já aparece na sua garagem.');
+      router.replace('/(tabs)/garage');
+    } catch (error: any) {
+      Alert.alert('Não foi possível salvar', error?.message ?? 'Tente novamente.');
+    } finally { setSaving(false); }
   }
 
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Criar</Text><Text style={styles.sub}>Comece adicionando um carro à sua garagem.</Text>
+        <Text style={styles.title}>Criar</Text><Text style={styles.sub}>{isDemo ? 'Você está criando no modo demo.' : 'O carro será salvo na sua conta real.'}</Text>
         <View style={styles.switcher}><View style={styles.on}><Text style={styles.onText}>🏎️ Carro</Text></View><View style={styles.off}><Text style={styles.offText}>📸 Post</Text></View><View style={styles.off}><Text style={styles.offText}>📍 Evento</Text></View></View>
         <Text style={styles.label}>Marca</Text><TextInput style={styles.input} placeholder="Ex.: BMW" placeholderTextColor={theme.colors.muted} value={make} onChangeText={setMake}/>
         <Text style={styles.label}>Modelo</Text><TextInput style={styles.input} placeholder="Ex.: M3 Competition" placeholderTextColor={theme.colors.muted} value={model} onChangeText={setModel}/>
+        <Text style={styles.label}>Motor</Text><TextInput style={styles.input} placeholder="Ex.: 3.0 I6 biturbo" placeholderTextColor={theme.colors.muted} value={engine} onChangeText={setEngine}/>
         <View style={styles.row}><View style={{ flex: 1 }}><Text style={styles.label}>Ano</Text><TextInput style={styles.input} placeholder="2024" placeholderTextColor={theme.colors.muted} keyboardType="number-pad" value={year} onChangeText={setYear}/></View><View style={{ flex: 1 }}><Text style={styles.label}>Potência atual</Text><TextInput style={styles.input} placeholder="510 cv" placeholderTextColor={theme.colors.muted} keyboardType="number-pad" value={hp} onChangeText={setHp}/></View></View>
-        <Text style={styles.label}>Fotos</Text><Pressable style={styles.photo}><Text style={styles.photoIcon}>＋</Text><Text style={styles.photoText}>Adicionar fotos</Text><Text style={styles.photoSub}>Upload real entra quando conectarmos o Storage do Supabase.</Text></Pressable>
-        <Pressable style={styles.save} onPress={save}><Text style={styles.saveText}>Adicionar à garagem</Text></Pressable>
+        <Text style={styles.label}>Fotos</Text><Pressable style={styles.photo}><Text style={styles.photoIcon}>＋</Text><Text style={styles.photoText}>Adicionar fotos</Text><Text style={styles.photoSub}>Na próxima etapa vamos ligar este botão ao Supabase Storage.</Text></Pressable>
+        <Pressable style={styles.save} onPress={save} disabled={saving}><Text style={styles.saveText}>{saving ? 'Salvando...' : 'Adicionar à garagem'}</Text></Pressable>
       </ScrollView>
     </Screen>
   );
