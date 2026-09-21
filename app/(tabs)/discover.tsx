@@ -136,17 +136,6 @@ export default function DiscoverScreen(){
 
   const hero=filteredCars[0];
 
-  const categoryVisuals=useMemo<Record<CarFilter,string|null>>(()=>({
-    'Todos':cars[0]?.image || null,
-    'JDM':cars.find((car)=>car.category==='JDM')?.image || null,
-    'Euro':cars.find((car)=>car.category==='Euro')?.image || null,
-    'Muscle':cars.find((car)=>car.category==='Muscle')?.image || null,
-    'Clássicos':cars.find((car)=>car.year>0&&car.year<=1999)?.image || null,
-    'Track':cars.find((car)=>car.category==='Track')?.image || null,
-    'Off-road':cars.find((car)=>car.tags.some((tag)=>/off.?road|4x4/i.test(tag)))?.image || null,
-    'Outros':cars.find((car)=>car.category==='Outros')?.image || null,
-  }),[cars]);
-
   return (
     <Screen>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -162,43 +151,7 @@ export default function DiscoverScreen(){
         <SectionTabs items={modes} value={mode} onChange={setMode}/>
 
         {mode==='Carros' && <>
-          <View style={styles.categoryBar}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoryRail}
-            >
-              {carCategories.map((category)=>{
-                const selected=filter===category;
-                const image=categoryVisuals[category];
-                return (
-                  <Pressable
-                    key={category}
-                    style={styles.categoryItem}
-                    onPress={()=>setFilter(category)}
-                  >
-                    <View style={[styles.categoryCircle,selected&&styles.categoryCircleActive]}>
-                      {image ? (
-                        <>
-                          <AppImage uri={image} style={StyleSheet.absoluteFill} contentFit="cover"/>
-                          <View style={styles.categoryImageShade}/>
-                        </>
-                      ) : (
-                        <View style={styles.categoryFallback}>
-                          <Text style={styles.categoryS}>S</Text>
-                          <Ionicons name="car-sport" size={28} color={theme.colors.accent}/>
-                        </View>
-                      )}
-                      {selected&&<View style={styles.categoryActiveDot}/>}
-                    </View>
-                    <Text style={[styles.categoryLabel,selected&&styles.categoryLabelActive]}>
-                      {category}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
+          <View style={styles.filterWrap}><SectionTabs items={carCategories} value={filter} onChange={setFilter} compact/></View>
           {loading ? <CenterState icon="car-sport-outline" title="Carregando projetos"/> : !hero ? <CenterState icon="car-sport-outline" title="Nenhum projeto encontrado" subtitle="Tente outra categoria ou busca."/> : <>
             <Pressable style={styles.hero} onPress={()=>router.push('/car/'+hero.id)}>
               <AppImage uri={hero.image} fallbackUri={hero.images?.find((uri)=>uri!==hero.image) || null} style={StyleSheet.absoluteFill} placeholder={<Ionicons name="car-sport-outline" size={48} color={theme.colors.muted2}/>}/>
@@ -292,61 +245,7 @@ const styles=StyleSheet.create({
   matchButton:{marginLeft:'auto',height:36,paddingHorizontal:12,borderRadius:18,borderWidth:1,borderColor:'#4E1116',backgroundColor:'#160709',flexDirection:'row',alignItems:'center',gap:6},
   matchButtonText:{color:theme.colors.text,fontSize:10,fontWeight:'900'},
   search:{paddingHorizontal:14,paddingBottom:12},
-  categoryBar:{
-    marginTop:10,
-    borderTopWidth:1,
-    borderBottomWidth:1,
-    borderColor:theme.colors.border,
-    paddingVertical:12,
-    backgroundColor:'#070708',
-  },
-  categoryRail:{paddingHorizontal:14,gap:14},
-  categoryItem:{width:78,alignItems:'center'},
-  categoryCircle:{
-    width:68,
-    height:68,
-    borderRadius:34,
-    overflow:'hidden',
-    borderWidth:2,
-    borderColor:'#2D3036',
-    backgroundColor:'#111216',
-    alignItems:'center',
-    justifyContent:'center',
-  },
-  categoryCircleActive:{
-    borderColor:theme.colors.accent,
-    shadowColor:theme.colors.accent,
-    shadowOpacity:.65,
-    shadowRadius:8,
-    elevation:5,
-  },
-  categoryImageShade:{...StyleSheet.absoluteFill,backgroundColor:'rgba(30,0,0,.16)'},
-  categoryFallback:{...StyleSheet.absoluteFill,alignItems:'center',justifyContent:'center',backgroundColor:'#0D0E11'},
-  categoryS:{
-    position:'absolute',
-    color:'rgba(229,9,20,.18)',
-    fontSize:62,
-    lineHeight:62,
-    fontWeight:'900',
-    fontStyle:'italic',
-  },
-  categoryActiveDot:{
-    position:'absolute',
-    bottom:5,
-    width:6,
-    height:6,
-    borderRadius:3,
-    backgroundColor:theme.colors.accent,
-    borderWidth:1,
-    borderColor:'#09090A',
-  },
-  categoryLabel:{
-    color:'#B7B9BF',
-    fontSize:10.5,
-    fontWeight:'800',
-    marginTop:7,
-  },
-  categoryLabelActive:{color:theme.colors.white,fontWeight:'900'},
+  filterWrap:{marginTop:10},
   hero:{height:255,margin:14,borderRadius:theme.radius.lg,overflow:'hidden',borderWidth:1,borderColor:theme.colors.border,backgroundColor:theme.colors.surface},
   heroShade:{...StyleSheet.absoluteFill,backgroundColor:'rgba(0,0,0,.38)'},
   heroContent:{position:'absolute',left:16,right:16,bottom:16},
