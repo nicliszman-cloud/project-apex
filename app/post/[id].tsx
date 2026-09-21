@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,7 +10,18 @@ import { normalizeStoredMediaUrl } from '@/lib/media';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 
-type CommentItem = { id: string; authorId: string; author: string; avatar: string | null; body: string; createdAt: string; };
+type CommentItem = {
+  id: string;
+  authorId: string;
+  author: string;
+  username: string | null;
+  avatar: string | null;
+  body: string;
+  createdAt: string;
+  parentId: string | null;
+};
+
+type ThreadComment = CommentItem & { depth: number };
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -23,20 +34,87 @@ export default function PostDetailScreen() {
   const [editing, setEditing] = useState(false);
   const [caption, setCaption] = useState(post?.caption || '');
   const [saved, setSaved] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<CommentItem | null>(null);
 
   async function loadComments() {
     if (!supabase || !id) return;
-    const { data: rows } = await supabase.from('comments').select('id, author_id, body, created_at').eq('post_id', id).order('created_at', { ascending: true });
-    const authorIds = [...new Set((rows ?? []).map((row: any) => row.author_id))];
-    const { data: profiles } = authorIds.length ? await supabase.from('profiles').select('id, display_name, username, avatar_url').in('id', authorIds) : { data: [] as any[] };
+
+    let result = await supabase
+      .from('comments')
+      .select('id, author_id, body, created_at, parent_comment_id')
+      .eq('post_id', id)
+      .order('created_at', { ascending: true });
+
+    const missingParentColumn =
+      result.error?.code === '42703'
+      || result.error?.code === 'PGRST204'
+      || /parent_comment_id/i.test(result.error?.message || '');
+
+    if (missingParentColumn) {
+      result = await supabase
+        .from('comments')
+        .select('id, author_id, body, created_at')
+        .eq('post_id', id)
+        .order('created_at', { ascending: true });
+    }
+
+    if (result.error) {
+      console.warn('StreetClub comments:', result.error.message);
+      return;
+    }
+
+    const rows = result.data ?? [];
+    const authorIds = [...new Set(rows.map((row: any) => row.author_id))];
+    const { data: profiles } = authorIds.length
+      ? await supabase.from('profiles').select('id, display_name, username, avatar_url').in('id', authorIds)
+      : { data: [] as any[] };
+
     const map = new Map((profiles ?? []).map((p: any) => [p.id, p]));
-    setComments((rows ?? []).map((row: any) => {
+
+    setComments(rows.map((row: any) => {
       const p: any = map.get(row.author_id);
-      return { id: row.id, authorId: row.author_id, author: p?.display_name || p?.username || 'Driver', avatar: normalizeStoredMediaUrl(p?.avatar_url), body: row.body, createdAt: row.created_at };
+      return {
+        id: row.id,
+        authorId: row.author_id,
+        author: p?.display_name || p?.username || 'Driver',
+        username: p?.username || null,
+        avatar: normalizeStoredMediaUrl(p?.avatar_url),
+        body: row.body,
+        createdAt: row.created_at,
+        parentId: row.parent_comment_id || null,
+      };
     }));
   }
 
   useEffect(() => { void loadComments(); }, [id]);
+
+  const threadedComments = useMemo<ThreadComment[]>(() => {
+    const roots = comments.filter((comment) => !comment.parentId);
+    const children = new Map<string, CommentItem[]>();
+
+    for (const comment of comments) {
+      if (!comment.parentId) continue;
+      const list = children.get(comment.parentId) ?? [];
+      list.push(comment);
+      children.set(comment.parentId, list);
+    }
+
+    const output: ThreadComment[] = [];
+    for (const root of roots) {
+      output.push({ ...root, depth: 0 });
+      for (const reply of children.get(root.id) ?? []) {
+        output.push({ ...reply, depth: 1 });
+      }
+    }
+
+    // Keep orphaned replies visible if their parent was deleted or unavailable.
+    const visibleIds = new Set(output.map((comment) => comment.id));
+    for (const comment of comments) {
+      if (!visibleIds.has(comment.id)) output.push({ ...comment, depth: comment.parentId ? 1 : 0 });
+    }
+
+    return output;
+  }, [comments]);
 
   useEffect(() => {
     if (!post) void refreshRemoteData();
@@ -48,14 +126,45 @@ export default function PostDetailScreen() {
 
   async function send() {
     if (!supabase || !myUserId || !text.trim()) return;
+
     const body = text.trim();
+    const replyTarget = replyingTo;
+    const parentId = replyTarget ? (replyTarget.parentId || replyTarget.id) : null;
+
     setText('');
-    const { error } = await supabase.from('comments').insert({ post_id: id, author_id: myUserId, body });
-    if (error) {
-      setText(body);
-      return Alert.alert('Comentário', error.message);
+
+    let result = await supabase.from('comments').insert({
+      post_id: id,
+      author_id: myUserId,
+      body,
+      parent_comment_id: parentId,
+    });
+
+    const missingParentColumn =
+      result.error?.code === '42703'
+      || result.error?.code === 'PGRST204'
+      || /parent_comment_id/i.test(result.error?.message || '');
+
+    if (missingParentColumn) {
+      const mention = replyTarget
+        ? '@' + (replyTarget.username || replyTarget.author).replace(/^@/, '') + ' '
+        : '';
+
+      result = await supabase.from('comments').insert({
+        post_id: id,
+        author_id: myUserId,
+        body: mention + body,
+      });
     }
+
+    if (result.error) {
+      setText(body);
+      return Alert.alert('Comentário', result.error.message);
+    }
+
+    setReplyingTo(null);
     await loadComments();
+    await refreshRemoteData();
   }
 
   async function saveCaption() {
@@ -109,7 +218,7 @@ export default function PostDetailScreen() {
         </View>
 
         <FlatList
-          data={comments}
+          data={threadedComments}
           keyExtractor={(item) => item.id}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -157,21 +266,53 @@ export default function PostDetailScreen() {
           }
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
-            <Pressable style={styles.comment} onPress={() => router.push('/user/' + item.authorId)}>
-              <AppImage uri={item.avatar} style={styles.commentAvatar} placeholder={<Text style={styles.avatarText}>{item.author[0]}</Text>} />
+            <View style={[styles.comment, item.depth > 0 && styles.replyComment]}>
+              {item.depth > 0 && <View style={styles.replyLine} />}
+              <Pressable onPress={() => router.push('/user/' + item.authorId)}>
+                <AppImage uri={item.avatar} style={[styles.commentAvatar, item.depth > 0 && styles.replyAvatar]} placeholder={<Text style={styles.avatarText}>{item.author[0]}</Text>} />
+              </Pressable>
               <View style={styles.commentCopy}>
-                <Text style={styles.commentBody}><Text style={styles.commentAuthor}>{item.author} </Text>{item.body}</Text>
-                <Text style={styles.commentTime}>{new Date(item.createdAt).toLocaleString('pt-BR')}</Text>
+                <Text style={styles.commentBody}>
+                  <Text style={styles.commentAuthor}>{item.username ? '@' + item.username : item.author} </Text>
+                  {item.body}
+                </Text>
+                <View style={styles.commentMetaRow}>
+                  <Text style={styles.commentTime}>{new Date(item.createdAt).toLocaleString('pt-BR')}</Text>
+                  <Pressable hitSlop={8} onPress={() => setReplyingTo(item)}>
+                    <Text style={styles.replyAction}>Responder</Text>
+                  </Pressable>
+                </View>
               </View>
-            </Pressable>
+            </View>
           )}
         />
 
-        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 9) }]}>
-          <TextInput style={styles.input} value={text} onChangeText={setText} placeholder="Adicione um comentário..." placeholderTextColor={theme.colors.muted} multiline maxLength={1000} />
-          <Pressable style={[styles.send, !text.trim() && styles.sendDisabled]} onPress={() => { void send(); }} disabled={!text.trim()}>
-            <Ionicons name="paper-plane" size={19} color={theme.colors.white} />
-          </Pressable>
+        <View style={[styles.composerWrap, { paddingBottom: Math.max(insets.bottom, 9) }]}>
+          {!!replyingTo && (
+            <View style={styles.replyingBar}>
+              <Ionicons name="return-down-forward" size={15} color={theme.colors.accent} />
+              <Text style={styles.replyingText} numberOfLines={1}>
+                Respondendo a @{(replyingTo.username || replyingTo.author).replace(/^@/, '')}
+              </Text>
+              <Pressable hitSlop={8} onPress={() => setReplyingTo(null)}>
+                <Ionicons name="close" size={17} color={theme.colors.muted} />
+              </Pressable>
+            </View>
+          )}
+          <View style={styles.composer}>
+            <TextInput
+              style={styles.input}
+              value={text}
+              onChangeText={setText}
+              placeholder={replyingTo ? 'Escreva uma resposta...' : 'Adicione um comentário...'}
+              placeholderTextColor={theme.colors.muted}
+              multiline
+              maxLength={1000}
+            />
+            <Pressable style={[styles.send, !text.trim() && styles.sendDisabled]} onPress={() => { void send(); }} disabled={!text.trim()}>
+              <Ionicons name="paper-plane" size={19} color={theme.colors.white} />
+            </Pressable>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </Screen>
@@ -206,13 +347,21 @@ const styles = StyleSheet.create({
   hint: { color: theme.colors.muted2, fontSize: 8.5, marginTop: 5 },
   commentsTitle: { color: theme.colors.text, fontWeight: '900', fontSize: 13.5, marginTop: 18, paddingBottom: 6 },
   list: { paddingBottom: 10 },
-  comment: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, gap: 9 },
+  comment: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, gap: 9, position: 'relative' },
+  replyComment: { paddingLeft: 48, paddingTop: 5 },
+  replyLine: { position: 'absolute', left: 28, top: 0, bottom: 8, width: 1, backgroundColor: theme.colors.borderStrong },
   commentAvatar: { width: 33, height: 33, borderRadius: 17 },
+  replyAvatar: { width: 27, height: 27, borderRadius: 14 },
   commentCopy: { flex: 1 },
   commentBody: { color: theme.colors.textSoft, lineHeight: 17, fontSize: 11.5 },
   commentAuthor: { color: theme.colors.text, fontWeight: '900' },
-  commentTime: { color: theme.colors.muted2, fontSize: 8, marginTop: 3 },
-  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: 7, paddingHorizontal: 10, paddingTop: 9, borderTopWidth: 1, borderTopColor: theme.colors.border, backgroundColor: '#08090B' },
+  commentMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
+  commentTime: { color: theme.colors.muted2, fontSize: 8 },
+  replyAction: { color: theme.colors.muted, fontSize: 9, fontWeight: '900' },
+  composerWrap: { borderTopWidth: 1, borderTopColor: theme.colors.border, backgroundColor: '#08090B' },
+  replyingBar: { minHeight: 34, paddingHorizontal: 13, flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#0E0F12' },
+  replyingText: { color: theme.colors.textSoft, fontSize: 9.5, fontWeight: '800', flex: 1 },
+  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: 7, paddingHorizontal: 10, paddingTop: 9, backgroundColor: '#08090B' },
   input: { flex: 1, maxHeight: 105, minHeight: 42, color: theme.colors.text, backgroundColor: theme.colors.surface2, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 21, paddingHorizontal: 14, paddingVertical: 10, fontSize: 12 },
   send: { width: 42, height: 42, borderRadius: 21, backgroundColor: theme.colors.accent, alignItems: 'center', justifyContent: 'center' },
   sendDisabled: { opacity: .4 },
