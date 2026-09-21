@@ -1,6 +1,7 @@
-import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { AppImage } from '@/components/AppImage';
 import { useApp } from '@/context/AppContext';
 import { theme } from '@/lib/theme';
 
@@ -13,7 +14,7 @@ export default function FeedScreen() {
         <Text style={styles.logo}>APEX</Text>
         <View style={styles.headerActions}>
           <Pressable onPress={() => router.push('/notifications')}><Text style={styles.headerIcon}>🔔</Text></Pressable>
-          <Pressable onPress={() => router.push('/matches')}><Text style={styles.headerIcon}>💬</Text></Pressable>
+          <Pressable onPress={() => router.push('/inbox')}><Text style={styles.headerIcon}>💬</Text></Pressable>
         </View>
       </View>
 
@@ -32,12 +33,14 @@ export default function FeedScreen() {
           renderItem={({ item }) => (
             <View style={styles.post}>
               <Pressable style={styles.author} onPress={() => item.authorId && router.push('/user/' + item.authorId)}>
-                {item.authorAvatar ? <Image source={{ uri: item.authorAvatar }} style={styles.avatarImage} /> : <View style={styles.avatar}><Text style={styles.avatarText}>{item.author[0]}</Text></View>}
+                <AppImage uri={item.authorAvatar} style={styles.avatar} placeholder={<Text style={styles.avatarText}>{item.author[0]}</Text>} />
                 <View><Text style={styles.authorName}>{item.author}</Text><Text style={styles.carName}>{item.carName}</Text></View>
                 <Text style={styles.more}>•••</Text>
               </Pressable>
 
-              <Pressable onPress={() => router.push('/post/' + item.id)}><Image source={{ uri: item.image }} style={styles.image}/></Pressable>
+              <Pressable onPress={() => router.push('/post/' + item.id)}>
+                <AppImage uri={item.image} style={styles.image} placeholder={<Text style={styles.photoPlaceholder}>📸</Text>} />
+              </Pressable>
 
               <View style={styles.postBody}>
                 <View style={styles.actions}>
@@ -47,7 +50,10 @@ export default function FeedScreen() {
                   <Text style={[styles.action, { marginLeft: 'auto' }]}>☆</Text>
                 </View>
                 <Text style={styles.likes}>{item.likes.toLocaleString('pt-BR')} curtidas</Text>
-                <Pressable onPress={() => router.push('/post/' + item.id)}><Text style={styles.caption}><Text style={{ fontWeight: '900' }}>{item.author} </Text>{item.caption}</Text><Text style={styles.commentsLink}>Ver comentários</Text></Pressable>
+                <Pressable onPress={() => router.push('/post/' + item.id)}>
+                  <Text style={styles.caption}><Text style={{ fontWeight: '900' }}>{item.author} </Text>{item.caption}</Text>
+                  <Text style={styles.commentsLink}>Ver comentários</Text>
+                </Pressable>
                 {isDemo && <Text style={styles.demo}>conteúdo demo</Text>}
               </View>
             </View>
@@ -66,13 +72,13 @@ const styles = StyleSheet.create({
   list: { paddingBottom: 26 },
   post: { borderBottomWidth: 1, borderBottomColor: theme.colors.border, paddingBottom: 18 },
   author: { flexDirection: 'row', alignItems: 'center', padding: 14 },
-  avatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: theme.colors.accent, alignItems: 'center', justifyContent: 'center' },
-  avatarImage: { width: 38, height: 38, borderRadius: 19 },
+  avatar: { width: 38, height: 38, borderRadius: 19 },
   avatarText: { color: 'white', fontWeight: '900' },
   authorName: { color: 'white', fontWeight: '900', marginLeft: 10 },
   carName: { color: theme.colors.muted, marginLeft: 10, fontSize: 11, marginTop: 2 },
   more: { marginLeft: 'auto', color: 'white' },
   image: { width: '100%', aspectRatio: 1.12 },
+  photoPlaceholder: { fontSize: 42 },
   postBody: { paddingHorizontal: 14 },
   actions: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 16 },
   action: { color: 'white', fontSize: 27 },

@@ -1,6 +1,7 @@
-import { Alert, FlatList, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { AppImage } from '@/components/AppImage';
 import { useApp } from '@/context/AppContext';
 import { theme } from '@/lib/theme';
 
@@ -32,9 +33,10 @@ export default function MeetsScreen() {
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
             <Pressable style={styles.card} onPress={() => router.push('/event/' + item.id)}>
-              <ImageBackground source={{ uri: item.image }} style={styles.photo} imageStyle={styles.photoImg}>
+              <View style={styles.photo}>
+                <AppImage uri={item.image} style={StyleSheet.absoluteFill} placeholder={<Text style={styles.eventPhotoPlaceholder}>📍</Text>} />
                 <View style={styles.shade}/><View style={styles.badge}><Text style={styles.badgeText}>{item.category}</Text></View>
-              </ImageBackground>
+              </View>
               <View style={styles.body}>
                 <Text style={styles.date}>{item.date}</Text>
                 <Text style={styles.eventTitle}>{item.title}</Text>
@@ -63,8 +65,8 @@ const styles = StyleSheet.create({
   list: { padding: 14, paddingBottom: 28, gap: 14 },
   card: { backgroundColor: theme.colors.surface, borderRadius: 22, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.border },
   photo: { height: 190 },
-  photoImg: { resizeMode: 'cover' },
-  shade: { ...StyleSheet.absoluteFill as any, backgroundColor: 'rgba(0,0,0,.18)' },
+  eventPhotoPlaceholder: { fontSize: 42 },
+  shade: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,.18)' },
   badge: { position: 'absolute', top: 13, left: 13, backgroundColor: 'rgba(0,0,0,.65)', paddingHorizontal: 11, paddingVertical: 7, borderRadius: 99 },
   badgeText: { color: 'white', fontWeight: '900', fontSize: 11 },
   body: { padding: 16 },

@@ -1,16 +1,19 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppImage } from '@/components/AppImage';
 import { Car } from '@/types';
 import { theme } from '@/lib/theme';
 
 export function CarCard({ car, onPress }: { car: Car; onPress?: () => void }) {
-  const avatarIsImage = car.ownerAvatar.startsWith('http');
-
   return (
     <Pressable style={styles.card} onPress={onPress}>
-      <Image source={{ uri: car.image }} style={styles.image} />
+      <AppImage uri={car.image} style={styles.image} placeholder={<Text style={styles.photoPlaceholder}>🏎️</Text>} />
       <View style={styles.overlay} />
       <View style={styles.topRow}>
-        {avatarIsImage ? <Image source={{ uri: car.ownerAvatar }} style={styles.avatarImage} /> : <View style={styles.avatar}><Text style={styles.avatarText}>{car.ownerAvatar}</Text></View>}
+        <AppImage
+          uri={car.ownerAvatar.startsWith('http') ? car.ownerAvatar : null}
+          style={styles.avatarImage}
+          placeholder={<Text style={styles.avatarText}>{car.ownerAvatar.slice(0, 1)}</Text>}
+        />
         <Text style={styles.owner}>{car.ownerName}</Text>
         <Text style={styles.location}>{car.city} • {car.state}</Text>
       </View>
@@ -25,10 +28,10 @@ export function CarCard({ car, onPress }: { car: Car; onPress?: () => void }) {
 
 const styles = StyleSheet.create({
   card: { height: 560, borderRadius: 28, overflow: 'hidden', backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border },
-  image: { ...StyleSheet.absoluteFill as any, width: '100%', height: '100%' },
-  overlay: { ...StyleSheet.absoluteFill as any, backgroundColor: 'rgba(0,0,0,0.18)' },
+  image: { ...StyleSheet.absoluteFill, width: '100%', height: '100%' },
+  photoPlaceholder: { fontSize: 52 },
+  overlay: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,0.18)' },
   topRow: { position: 'absolute', left: 18, right: 18, top: 18, flexDirection: 'row', alignItems: 'center' },
-  avatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: theme.colors.accent, alignItems: 'center', justifyContent: 'center' },
   avatarImage: { width: 34, height: 34, borderRadius: 17 },
   avatarText: { color: 'white', fontWeight: '900' },
   owner: { color: 'white', fontWeight: '800', marginLeft: 9 },

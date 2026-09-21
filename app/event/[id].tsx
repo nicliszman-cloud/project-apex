@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { AppImage } from '@/components/AppImage';
 import { useApp } from '@/context/AppContext';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
@@ -41,7 +42,7 @@ export default function EventDetailScreen() {
   return (
     <Screen>
       <ScrollView>
-        <View><Image source={{ uri: event.image }} style={styles.hero}/><Pressable style={styles.backButton} onPress={() => router.back()}><Text style={styles.back}>‹</Text></Pressable></View>
+        <View><AppImage uri={event.image} style={styles.hero} placeholder={<Text style={styles.heroPlaceholder}>📍</Text>} /><Pressable style={styles.backButton} onPress={() => router.back()}><Text style={styles.back}>‹</Text></Pressable></View>
         <View style={styles.body}>
           <Text style={styles.category}>{event.category}</Text>
           {editing ? <>
@@ -74,6 +75,7 @@ export default function EventDetailScreen() {
 
 const styles = StyleSheet.create({
   hero: { width: '100%', height: 300 },
+  heroPlaceholder: { fontSize: 48 },
   backButton: { position: 'absolute', top: 14, left: 14, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,.6)', alignItems: 'center', justifyContent: 'center' },
   back: { color: 'white', fontSize: 38, marginTop: -4 },
   body: { padding: 20 },

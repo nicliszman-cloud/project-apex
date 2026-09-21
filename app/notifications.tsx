@@ -7,7 +7,7 @@ import { theme } from '@/lib/theme';
 
 type NotificationRow = {
   id: string;
-  type: 'follow' | 'comment' | 'match' | 'event';
+  type: 'follow' | 'comment' | 'match' | 'event' | 'message' | 'marketplace';
   entity_id: string | null;
   body: string;
   read_at: string | null;
@@ -39,6 +39,9 @@ export default function NotificationsScreen() {
     if (item.type === 'comment' && item.entity_id) router.push('/post/' + item.entity_id);
     else if (item.type === 'match') router.push('/matches');
     else if (item.type === 'follow' && item.entity_id) router.push('/user/' + item.entity_id);
+    else if ((item.type === 'message' || item.type === 'marketplace') && item.entity_id) {
+      router.push({ pathname: '/chat', params: { conversationId: item.entity_id } });
+    }
   }
 
   async function markAll() {
@@ -56,7 +59,7 @@ export default function NotificationsScreen() {
       </View>
 
       {loading ? <View style={styles.center}><Text style={styles.muted}>Carregando...</Text></View> :
-        items.length === 0 ? <View style={styles.center}><Text style={styles.icon}>🔔</Text><Text style={styles.emptyTitle}>Nada por aqui ainda</Text><Text style={styles.muted}>Matches, seguidores e comentários aparecerão aqui.</Text></View> :
+        items.length === 0 ? <View style={styles.center}><Text style={styles.icon}>🔔</Text><Text style={styles.emptyTitle}>Nada por aqui ainda</Text><Text style={styles.muted}>Mensagens, matches, seguidores e comentários aparecerão aqui.</Text></View> :
         <FlatList data={items} keyExtractor={(item) => item.id} contentContainerStyle={styles.list} renderItem={({ item }) => (
           <Pressable style={[styles.item, !item.read_at && styles.unread]} onPress={() => { void open(item); }}>
             <View style={styles.dot} />

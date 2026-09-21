@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Alert, FlatList, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '@/components/Screen';
+import { AppImage } from '@/components/AppImage';
 import { useApp } from '@/context/AppContext';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
@@ -18,6 +20,7 @@ type CommentItem = {
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { posts, myUserId, togglePostLike, refreshRemoteData } = useApp();
+  const insets = useSafeAreaInsets();
   const post = posts.find((item) => item.id === id);
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [text, setText] = useState('');
@@ -94,39 +97,69 @@ export default function PostDetailScreen() {
 
   return (
     <Screen>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.header}><Pressable onPress={() => router.back()}><Text style={styles.back}>‹</Text></Pressable><Text style={styles.title}>Publicação</Text><Pressable onPress={mine ? removePost : reportPost} style={styles.menu}><Text style={styles.menuText}>{mine ? 'Excluir' : 'Denunciar'}</Text></Pressable></View>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()}><Text style={styles.back}>‹</Text></Pressable>
+          <Text style={styles.title}>Publicação</Text>
+          <Pressable onPress={mine ? removePost : reportPost} style={styles.menu}><Text style={styles.menuText}>{mine ? 'Excluir' : 'Denunciar'}</Text></Pressable>
+        </View>
 
         <FlatList
           data={comments}
           keyExtractor={(item) => item.id}
+          keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
             <View>
               <Pressable style={styles.authorRow} onPress={() => post.authorId && router.push('/user/' + post.authorId)}>
-                <View style={styles.avatar}><Text style={styles.avatarText}>{post.author[0]}</Text></View>
+                <AppImage uri={post.authorAvatar} style={styles.avatar} placeholder={<Text style={styles.avatarText}>{post.author[0]}</Text>} />
                 <View><Text style={styles.author}>{post.author}</Text><Text style={styles.car}>{post.carName}</Text></View>
               </Pressable>
-              <Image source={{ uri: post.image }} style={styles.image} />
+              <AppImage uri={post.image} style={styles.image} placeholder={<Text style={styles.photoPlaceholder}>📸</Text>} />
               <View style={styles.body}>
-                <Pressable onPress={() => { void togglePostLike(post.id); }}><Text style={[styles.heart, post.liked && { color: theme.colors.accent }]}>{post.liked ? '♥' : '♡'} <Text style={styles.likeCount}>{post.likes}</Text></Text></Pressable>
+                <Pressable onPress={() => { void togglePostLike(post.id); }}>
+                  <Text style={[styles.heart, post.liked && { color: theme.colors.accent }]}>{post.liked ? '♥' : '♡'} <Text style={styles.likeCount}>{post.likes}</Text></Text>
+                </Pressable>
+
                 {editing ? <>
                   <TextInput style={styles.captionInput} value={caption} onChangeText={setCaption} multiline />
-                  <View style={styles.editActions}><Pressable onPress={() => setEditing(false)}><Text style={styles.cancel}>Cancelar</Text></Pressable><Pressable onPress={() => { void saveCaption(); }}><Text style={styles.save}>Salvar</Text></Pressable></View>
-                </> : <Pressable onLongPress={() => mine && setEditing(true)}><Text style={styles.caption}><Text style={{ fontWeight: '900' }}>{post.author} </Text>{post.caption}</Text>{mine && <Text style={styles.hint}>Segure a legenda para editar</Text>}</Pressable>}
+                  <View style={styles.editActions}>
+                    <Pressable onPress={() => setEditing(false)}><Text style={styles.cancel}>Cancelar</Text></Pressable>
+                    <Pressable onPress={() => { void saveCaption(); }}><Text style={styles.save}>Salvar</Text></Pressable>
+                  </View>
+                </> : (
+                  <Pressable onLongPress={() => mine && setEditing(true)}>
+                    <Text style={styles.caption}><Text style={{ fontWeight: '900' }}>{post.author} </Text>{post.caption}</Text>
+                    {mine && <Text style={styles.hint}>Segure a legenda para editar</Text>}
+                  </Pressable>
+                )}
                 <Text style={styles.commentsTitle}>Comentários</Text>
               </View>
             </View>
           }
-          contentContainerStyle={{ paddingBottom: 10 }}
+          contentContainerStyle={{ paddingBottom: 12 }}
           renderItem={({ item }) => (
             <Pressable style={styles.comment} onPress={() => router.push('/user/' + item.authorId)}>
-              {item.avatar ? <Image source={{ uri: item.avatar }} style={styles.commentAvatar} /> : <View style={styles.commentAvatarFallback}><Text style={styles.avatarText}>{item.author[0]}</Text></View>}
-              <View style={{ flex: 1 }}><Text style={styles.commentBody}><Text style={styles.commentAuthor}>{item.author} </Text>{item.body}</Text><Text style={styles.commentTime}>{new Date(item.createdAt).toLocaleString('pt-BR')}</Text></View>
+              <AppImage uri={item.avatar} style={styles.commentAvatar} placeholder={<Text style={styles.avatarText}>{item.author[0]}</Text>} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.commentBody}><Text style={styles.commentAuthor}>{item.author} </Text>{item.body}</Text>
+                <Text style={styles.commentTime}>{new Date(item.createdAt).toLocaleString('pt-BR')}</Text>
+              </View>
             </Pressable>
           )}
         />
 
-        <View style={styles.composer}><TextInput style={styles.input} value={text} onChangeText={setText} placeholder="Escreva um comentário..." placeholderTextColor={theme.colors.muted} /><Pressable style={styles.send} onPress={() => { void send(); }}><Text style={styles.sendText}>Enviar</Text></Pressable></View>
+        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+          <TextInput
+            style={styles.input}
+            value={text}
+            onChangeText={setText}
+            placeholder="Escreva um comentário..."
+            placeholderTextColor={theme.colors.muted}
+            multiline
+            maxLength={1000}
+          />
+          <Pressable style={styles.send} onPress={() => { void send(); }}><Text style={styles.sendText}>Enviar</Text></Pressable>
+        </View>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -139,11 +172,12 @@ const styles = StyleSheet.create({
   menu: { marginLeft: 'auto' },
   menuText: { color: '#F07880', fontWeight: '900', fontSize: 12 },
   authorRow: { flexDirection: 'row', alignItems: 'center', padding: 14 },
-  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.colors.accent, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 40, height: 40, borderRadius: 20 },
   avatarText: { color: 'white', fontWeight: '900' },
   author: { color: 'white', fontWeight: '900', marginLeft: 10 },
   car: { color: theme.colors.muted, fontSize: 11, marginLeft: 10, marginTop: 2 },
   image: { width: '100%', aspectRatio: 1.12 },
+  photoPlaceholder: { fontSize: 42 },
   body: { padding: 14 },
   heart: { color: 'white', fontSize: 25 },
   likeCount: { fontSize: 14, fontWeight: '900' },
@@ -156,13 +190,12 @@ const styles = StyleSheet.create({
   commentsTitle: { color: 'white', fontWeight: '900', fontSize: 18, marginTop: 22 },
   comment: { flexDirection: 'row', paddingHorizontal: 14, paddingVertical: 9, gap: 10 },
   commentAvatar: { width: 34, height: 34, borderRadius: 17 },
-  commentAvatarFallback: { width: 34, height: 34, borderRadius: 17, backgroundColor: theme.colors.surface2, alignItems: 'center', justifyContent: 'center' },
   commentBody: { color: '#E7E8EA', lineHeight: 19 },
   commentAuthor: { color: 'white', fontWeight: '900' },
   commentTime: { color: theme.colors.muted, fontSize: 9, marginTop: 3 },
-  composer: { flexDirection: 'row', gap: 8, padding: 10, borderTopWidth: 1, borderTopColor: theme.colors.border },
-  input: { flex: 1, color: 'white', backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 99, paddingHorizontal: 15, paddingVertical: 11 },
-  send: { backgroundColor: theme.colors.accent, borderRadius: 99, paddingHorizontal: 15, justifyContent: 'center' },
+  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: theme.colors.border, backgroundColor: theme.colors.background },
+  input: { flex: 1, maxHeight: 110, minHeight: 46, color: 'white', backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 23, paddingHorizontal: 15, paddingVertical: 11 },
+  send: { backgroundColor: theme.colors.accent, height: 46, borderRadius: 23, paddingHorizontal: 15, justifyContent: 'center' },
   sendText: { color: 'white', fontWeight: '900' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   muted: { color: theme.colors.muted },

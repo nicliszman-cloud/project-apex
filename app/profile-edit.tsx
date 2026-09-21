@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { AppImage } from '@/components/AppImage';
 import { useApp } from '@/context/AppContext';
 import { pickImages } from '@/lib/media';
 import { supabase } from '@/lib/supabase';
@@ -77,7 +78,7 @@ export default function ProfileEditScreen() {
         <Text style={styles.sub}>Essas informações aparecem na sua garagem, posts e carros.</Text>
 
         <Pressable style={styles.avatarWrap} onPress={chooseAvatar}>
-          {profile?.avatarUrl ? <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImage} /> : <View style={styles.avatarFallback}><Text style={styles.avatarLetter}>{(profile?.displayName || 'A')[0].toUpperCase()}</Text></View>}
+          <AppImage uri={profile?.avatarUrl} style={styles.avatarImage} placeholder={<Text style={styles.avatarLetter}>{(profile?.displayName || 'A')[0].toUpperCase()}</Text>} />
           <Text style={styles.avatarAction}>{uploadingAvatar ? 'Enviando...' : 'Alterar foto'}</Text>
         </Pressable>
 
@@ -101,7 +102,6 @@ const styles = StyleSheet.create({
   sub: { color: theme.colors.muted, marginTop: 7, lineHeight: 20 },
   avatarWrap: { alignItems: 'center', marginTop: 24 },
   avatarImage: { width: 92, height: 92, borderRadius: 30 },
-  avatarFallback: { width: 92, height: 92, borderRadius: 30, backgroundColor: theme.colors.accent, alignItems: 'center', justifyContent: 'center' },
   avatarLetter: { color: 'white', fontWeight: '900', fontSize: 34 },
   avatarAction: { color: theme.colors.accent, fontWeight: '900', marginTop: 9 },
   label: { color: '#D8DADE', fontWeight: '800', fontSize: 12, marginTop: 18, marginBottom: 7 },

@@ -1,7 +1,9 @@
-import { Alert, Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { AppImage } from '@/components/AppImage';
 import { useApp } from '@/context/AppContext';
+import { openConversation } from '@/lib/messaging';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 
@@ -16,6 +18,16 @@ export default function CarProfileScreen() {
 
   const gallery = car.images?.length ? car.images : [car.image];
   const mine = car.ownerId === myUserId;
+
+  async function messageOwner() {
+    if (mine) return;
+    try {
+      const conversationId = await openConversation(car.ownerId);
+      router.push({ pathname: '/chat', params: { conversationId } });
+    } catch (error: any) {
+      Alert.alert('Mensagem', error?.message ?? 'Não foi possível abrir a conversa.');
+    }
+  }
 
   function remove() {
     if (!supabase || !mine) return;
@@ -35,7 +47,7 @@ export default function CarProfileScreen() {
       <ScrollView>
         <View>
           <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false}>
-            {gallery.map((image, index) => <Image key={image + index} source={{ uri: image }} style={styles.hero} />)}
+            {gallery.map((image, index) => <AppImage key={image + index} uri={image} style={styles.hero} placeholder={<Text style={styles.heroPlaceholder}>🏎️</Text>} />)}
           </ScrollView>
           <Pressable style={styles.back} onPress={() => router.back()}><Text style={styles.backText}>‹</Text></Pressable>
           {gallery.length > 1 && <View style={styles.photoCount}><Text style={styles.photoCountText}>{gallery.length} fotos</Text></View>}
@@ -45,6 +57,8 @@ export default function CarProfileScreen() {
           <Text style={styles.kicker}>{car.category} • {car.city}, {car.state}</Text>
           <Text style={styles.title}>{car.make} {car.model}</Text>
           <Pressable onPress={() => router.push('/user/' + car.ownerId)}><Text style={styles.owner}>por {car.ownerName}</Text></Pressable>
+
+          {!mine && <Pressable style={styles.messageOwner} onPress={() => { void messageOwner(); }}><Text style={styles.messageOwnerText}>💬 Mensagem para {car.ownerName}</Text></Pressable>}
 
           <View style={styles.metrics}>
             <View><Text style={styles.number}>{car.currentHp}</Text><Text style={styles.label}>CV ATUAL</Text></View>
@@ -73,6 +87,7 @@ export default function CarProfileScreen() {
 
 const styles = StyleSheet.create({
   hero: { width: WIDTH, height: 330 },
+  heroPlaceholder: { fontSize: 56 },
   back: { position: 'absolute', top: 14, left: 14, width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,.6)', alignItems: 'center', justifyContent: 'center' },
   backText: { color: 'white', fontSize: 38, marginTop: -4 },
   photoCount: { position: 'absolute', right: 14, bottom: 14, backgroundColor: 'rgba(0,0,0,.65)', borderRadius: 99, paddingHorizontal: 11, paddingVertical: 7 },
@@ -81,6 +96,8 @@ const styles = StyleSheet.create({
   kicker: { color: theme.colors.accent, fontWeight: '900', letterSpacing: 1.3, fontSize: 11 },
   title: { color: 'white', fontSize: 31, fontWeight: '900', marginTop: 5 },
   owner: { color: theme.colors.accent, marginTop: 5, fontWeight: '800' },
+  messageOwner: { backgroundColor: theme.colors.accent, borderRadius: 14, padding: 13, alignItems: 'center', marginTop: 16 },
+  messageOwnerText: { color: 'white', fontWeight: '900' },
   metrics: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 18, paddingVertical: 17, marginTop: 20 },
   number: { color: 'white', fontWeight: '900', fontSize: 19, textAlign: 'center' },
   label: { color: theme.colors.muted, fontWeight: '800', fontSize: 9, marginTop: 3 },

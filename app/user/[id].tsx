@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { AppImage } from '@/components/AppImage';
 import { useApp } from '@/context/AppContext';
+import { openConversation } from '@/lib/messaging';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 
@@ -67,6 +69,16 @@ export default function UserProfileScreen() {
     await load();
   }
 
+  async function message() {
+    if (!id || mine || blocked) return;
+    try {
+      const conversationId = await openConversation(id);
+      router.push({ pathname: '/chat', params: { conversationId } });
+    } catch (error: any) {
+      Alert.alert('Mensagem', error?.message ?? 'Não foi possível abrir a conversa.');
+    }
+  }
+
   async function toggleBlock() {
     if (!supabase || !myUserId || mine) return;
     const result = blocked
@@ -102,7 +114,7 @@ export default function UserProfileScreen() {
         <View style={styles.top}><Pressable onPress={() => router.back()}><Text style={styles.back}>‹</Text></Pressable><Text style={styles.topTitle}>Perfil</Text></View>
 
         <View style={styles.identity}>
-          {profile.avatar_url ? <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} /> : <View style={styles.avatar}><Text style={styles.avatarText}>{(profile.display_name || 'A')[0]}</Text></View>}
+          <AppImage uri={profile.avatar_url} style={styles.avatarImage} placeholder={<Text style={styles.avatarText}>{(profile.display_name || 'A')[0]}</Text>} />
           <View style={{ flex: 1 }}><Text style={styles.name}>{profile.display_name || 'Driver'}</Text><Text style={styles.handle}>{profile.username ? '@' + profile.username : '@driver'} • {location}</Text></View>
         </View>
 
@@ -118,9 +130,13 @@ export default function UserProfileScreen() {
           <>
             <View style={styles.actions}>
               <Pressable style={[styles.primary, styles.flex, following && styles.following]} onPress={() => { void toggleFollow(); }}><Text style={styles.primaryText}>{following ? 'Seguindo ✓' : 'Seguir'}</Text></Pressable>
-              <Pressable style={styles.secondary} onPress={() => { void toggleBlock(); }}><Text style={styles.secondaryText}>{blocked ? 'Desbloquear' : 'Bloquear'}</Text></Pressable>
+              <Pressable style={[styles.message, styles.flex, blocked && styles.disabled]} onPress={() => { void message(); }} disabled={blocked}><Text style={styles.messageText}>💬 Mensagem</Text></Pressable>
             </View>
-            <Pressable onPress={report}><Text style={styles.report}>Denunciar usuário</Text></Pressable>
+            <View style={styles.safetyRow}>
+              <Pressable onPress={() => { void toggleBlock(); }}><Text style={styles.safety}>{blocked ? 'Desbloquear' : 'Bloquear'}</Text></Pressable>
+              <Text style={styles.separator}>•</Text>
+              <Pressable onPress={report}><Text style={styles.report}>Denunciar usuário</Text></Pressable>
+            </View>
           </>
         )}
 
@@ -128,7 +144,7 @@ export default function UserProfileScreen() {
         {blocked ? <View style={styles.blocked}><Text style={styles.muted}>Você bloqueou este usuário. O conteúdo dele está oculto.</Text></View> :
           cars.length === 0 ? <Text style={styles.muted}>Nenhum carro cadastrado.</Text> :
           cars.map((car) => <Pressable key={car.id} style={styles.car} onPress={() => router.push('/car/' + car.id)}>
-            {car.cover_url ? <Image source={{ uri: car.cover_url }} style={styles.carImage} /> : <View style={styles.carImageFallback}><Text>🏎️</Text></View>}
+            <AppImage uri={car.cover_url} style={styles.carImage} placeholder={<Text style={styles.carIcon}>🏎️</Text>} />
             <View style={styles.carBody}><Text style={styles.carTitle}>{car.make} {car.model}</Text><Text style={styles.carMeta}>{car.model_year || '—'} • {car.current_hp || 0} cv • {car.drivetrain || '—'}</Text></View>
           </Pressable>)
         }
@@ -143,7 +159,6 @@ const styles = StyleSheet.create({
   back: { color: 'white', fontSize: 38, marginRight: 10, marginTop: -4 },
   topTitle: { color: 'white', fontSize: 25, fontWeight: '900' },
   identity: { flexDirection: 'row', alignItems: 'center', marginTop: 20 },
-  avatar: { width: 76, height: 76, borderRadius: 25, backgroundColor: theme.colors.accent, alignItems: 'center', justifyContent: 'center' },
   avatarImage: { width: 76, height: 76, borderRadius: 25 },
   avatarText: { color: 'white', fontWeight: '900', fontSize: 30 },
   name: { color: 'white', fontSize: 24, fontWeight: '900', marginLeft: 14 },
@@ -157,13 +172,17 @@ const styles = StyleSheet.create({
   primary: { backgroundColor: theme.colors.accent, borderRadius: 14, padding: 14, alignItems: 'center', marginTop: 16 },
   following: { backgroundColor: '#1C6B49' },
   primaryText: { color: 'white', fontWeight: '900' },
-  secondary: { borderWidth: 1, borderColor: theme.colors.border, borderRadius: 14, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
-  secondaryText: { color: '#E4E6E9', fontWeight: '900' },
-  report: { color: '#F07880', textAlign: 'center', marginTop: 13, fontWeight: '800', fontSize: 12 },
+  message: { backgroundColor: theme.colors.surface2, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 14, padding: 14, alignItems: 'center' },
+  messageText: { color: 'white', fontWeight: '900' },
+  disabled: { opacity: 0.4 },
+  safetyRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10, marginTop: 13 },
+  safety: { color: '#D8DADE', fontWeight: '800', fontSize: 12 },
+  separator: { color: theme.colors.muted },
+  report: { color: '#F07880', fontWeight: '800', fontSize: 12 },
   section: { color: 'white', fontSize: 20, fontWeight: '900', marginTop: 28, marginBottom: 12 },
   car: { backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 18, overflow: 'hidden', marginBottom: 12 },
   carImage: { width: '100%', height: 190 },
-  carImageFallback: { width: '100%', height: 190, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surface2 },
+  carIcon: { fontSize: 40 },
   carBody: { padding: 13 },
   carTitle: { color: 'white', fontWeight: '900', fontSize: 18 },
   carMeta: { color: theme.colors.muted, marginTop: 4 },

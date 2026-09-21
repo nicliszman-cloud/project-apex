@@ -33,6 +33,15 @@ function extensionFor(image: LocalImage) {
   return fromName || fromUri || fromMime || 'jpg';
 }
 
+export function storagePathFromPublicUrl(value?: string | null): string | null {
+  if (!value) return null;
+  if (!/^https?:/i.test(value)) return value.replace(/^\/+/, '').replace(/^media\//, '');
+  const marker = '/storage/v1/object/public/media/';
+  const index = value.indexOf(marker);
+  if (index < 0) return null;
+  return decodeURIComponent(value.slice(index + marker.length));
+}
+
 export async function uploadPublicImage(
   userId: string,
   image: LocalImage,

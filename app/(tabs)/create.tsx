@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { AppImage } from '@/components/AppImage';
 import { useApp } from '@/context/AppContext';
 import { LocalImage, pickImages } from '@/lib/media';
 import { theme } from '@/lib/theme';
@@ -176,7 +177,7 @@ export default function CreateScreen() {
             <Text style={styles.photoText}>{carImages.length ? carImages.length + ' foto(s) selecionada(s)' : 'Escolher da galeria'}</Text>
             <Text style={styles.photoSub}>Até 6 fotos. A primeira será a capa.</Text>
           </Pressable>
-          {!!carImages.length && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.previewRow}>{carImages.map((image, index) => <Image key={image.uri + '-' + index} source={{ uri: image.uri }} style={styles.preview} />)}</ScrollView>}
+          {!!carImages.length && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.previewRow}>{carImages.map((image, index) => <AppImage key={image.uri + '-' + index} uri={image.uri} style={styles.preview} />)}</ScrollView>}
 
           <Pressable style={styles.save} onPress={saveCar} disabled={saving}><Text style={styles.saveText}>{saving ? 'Salvando...' : 'Adicionar à garagem'}</Text></Pressable>
         </>}
@@ -184,7 +185,7 @@ export default function CreateScreen() {
         {mode === 'post' && <>
           <Text style={styles.label}>Foto</Text>
           <Pressable style={[styles.photo, postImage && styles.photoWithImage]} onPress={() => chooseSingle(setPostImage)}>
-            {postImage ? <Image source={{ uri: postImage.uri }} style={styles.postPreview} /> : <>
+            {postImage ? <AppImage uri={postImage.uri} style={styles.postPreview} /> : <>
               <Text style={styles.photoIcon}>＋</Text><Text style={styles.photoText}>Escolher foto</Text>
             </>}
           </Pressable>
@@ -209,7 +210,7 @@ export default function CreateScreen() {
           <Field label="Data e horário" value={eventStarts} onChangeText={setEventStarts} placeholder="2026-10-04 09:00" />
           <Text style={styles.label}>Capa do evento</Text>
           <Pressable style={[styles.photo, eventImage && styles.photoWithImage]} onPress={() => chooseSingle(setEventImage)}>
-            {eventImage ? <Image source={{ uri: eventImage.uri }} style={styles.postPreview} /> : <>
+            {eventImage ? <AppImage uri={eventImage.uri} style={styles.postPreview} /> : <>
               <Text style={styles.photoIcon}>＋</Text><Text style={styles.photoText}>Escolher foto</Text>
             </>}
           </Pressable>

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { AppImage } from '@/components/AppImage';
 import { useApp } from '@/context/AppContext';
 import { LocalImage, pickImages, uploadPublicImage } from '@/lib/media';
 import { supabase } from '@/lib/supabase';
@@ -83,7 +84,7 @@ export default function MarketplaceCreateScreen() {
         </View>
 
         <Text style={styles.label}>Foto</Text>
-        <Pressable style={styles.photo} onPress={chooseImage}>{image ? <Image source={{ uri: image.uri }} style={styles.image} /> : <><Text style={styles.plus}>＋</Text><Text style={styles.photoText}>Adicionar foto</Text></>}</Pressable>
+        <Pressable style={styles.photo} onPress={chooseImage}>{image ? <AppImage uri={image.uri} style={styles.image} placeholder={<Text style={styles.plus}>🔧</Text>} /> : <><Text style={styles.plus}>＋</Text><Text style={styles.photoText}>Adicionar foto</Text></>}</Pressable>
 
         <Pressable style={styles.save} onPress={save} disabled={saving}><Text style={styles.saveText}>{saving ? 'Publicando...' : 'Publicar anúncio'}</Text></Pressable>
       </ScrollView>
