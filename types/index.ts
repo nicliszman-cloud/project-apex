@@ -1,4 +1,4 @@
-export type CarCategory = 'JDM' | 'Euro' | 'Muscle' | 'Supercar' | 'Hot Hatch' | 'Track';
+export type CarCategory = 'JDM' | 'Euro' | 'Muscle' | 'Supercar' | 'Hot Hatch' | 'Track' | 'Outros';
 
 export type Profile = {
   id: string;

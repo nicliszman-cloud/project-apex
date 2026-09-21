@@ -1,6 +1,6 @@
 import React, { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { demoCars, demoEvents, demoPosts } from '@/data/mock';
-import { importRemoteImage, LocalImage, normalizeStoredMediaUrl, resolveMediaUrl, uploadPublicImage } from '@/lib/media';
+import { importRemoteImage, LocalImage, normalizeStoredMediaUrl, resolveMediaUrl, storagePathFromPublicUrl, uploadPublicImage } from '@/lib/media';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { Car, CarCategory, CarEvent, FeedPost, MatchSummary, Profile } from '@/types';
 
@@ -57,7 +57,7 @@ const FALLBACK_CAR_IMAGE = 'https://images.unsplash.com/photo-1492144534655-ae79
 const FALLBACK_EVENT_IMAGE = 'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?auto=format&fit=crop&w=1400&q=85';
 
 function normalizeCategory(value: string | null): CarCategory {
-  const allowed: CarCategory[] = ['JDM', 'Euro', 'Muscle', 'Supercar', 'Hot Hatch', 'Track'];
+  const allowed: CarCategory[] = ['JDM', 'Euro', 'Muscle', 'Supercar', 'Hot Hatch', 'Track', 'Outros'];
   return allowed.includes(value as CarCategory) ? (value as CarCategory) : 'Euro';
 }
 
@@ -227,12 +227,29 @@ export function AppProvider({ children }: PropsWithChildren) {
           tags: [normalizeCategory(row.category), 'Build'],
         };
       });
+      // Migrate legacy external covers owned by this account into StreetClub Storage.
+      // This removes hotlink/CORS/provider differences between screens on mobile.
+      for (const car of mappedCars.filter((item) => item.ownerId === userId)) {
+        if (!/^https?:\/\//i.test(car.image) || storagePathFromPublicUrl(car.image)) continue;
+        try {
+          const mirrored = await importRemoteImage(userId, car.image, `cars/${car.id}/legacy`);
+          if (mirrored) {
+            const previous = car.image;
+            car.image = mirrored;
+            car.images = [mirrored, ...(car.images || []).filter((uri) => uri !== previous && uri !== mirrored)];
+            await supabase.from('cars').update({ cover_url: mirrored }).eq('id', car.id);
+          }
+        } catch {
+          // Keep the original external URL and AppImage fallbacks.
+        }
+      }
+
       setCars(mappedCars);
 
       const carsById = new Map(mappedCars.map((car) => [car.id, car]));
       const likes = postLikeResult.data ?? [];
       const commentRows = commentResult.data ?? [];
-      setPosts((postResult.data ?? []).map((row: any) => {
+      const mappedPosts: FeedPost[] = (postResult.data ?? []).map((row: any) => {
         const author: any = profiles.get(row.author_id);
         const car = row.car_id ? carsById.get(row.car_id) : undefined;
         const postLikes = likes.filter((like: any) => like.post_id === row.id);
@@ -253,7 +270,36 @@ export function AppProvider({ children }: PropsWithChildren) {
           liked: postLikes.some((like: any) => like.user_id === userId),
           createdAt: row.created_at,
         };
-      }));
+      });
+
+      for (const post of mappedPosts.filter((item) => item.authorId === userId)) {
+        const originalRow: any = (postResult.data ?? []).find((row: any) => row.id === post.id);
+        const normalizedOriginal = normalizeStoredMediaUrl(originalRow?.media_url);
+
+        // Old file:// values cannot survive an app restart. If the post is linked
+        // to a car, permanently repair it using the car cover.
+        if (!normalizedOriginal && post.carId) {
+          const car = carsById.get(post.carId);
+          if (car?.image) {
+            post.image = car.image;
+            await supabase.from('posts').update({ media_url: car.image }).eq('id', post.id);
+          }
+          continue;
+        }
+
+        if (!/^https?:\/\//i.test(post.image) || storagePathFromPublicUrl(post.image)) continue;
+        try {
+          const mirrored = await importRemoteImage(userId, post.image, 'posts/legacy');
+          if (mirrored) {
+            post.image = mirrored;
+            await supabase.from('posts').update({ media_url: mirrored }).eq('id', post.id);
+          }
+        } catch {
+          // Keep the remote URL; AppImage can still resolve common share links.
+        }
+      }
+
+      setPosts(mappedPosts);
 
       const attendance = attendeeResult.data ?? [];
       setEvents((eventResult.data ?? []).map((row: any) => {

@@ -2,18 +2,18 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Location from 'expo-location';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
 import { router } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { AppImage } from '@/components/AppImage';
 import { PrimaryButton } from '@/components/PrimaryButton';
+import { StreetMap } from '@/components/StreetMap';
 import { useApp } from '@/context/AppContext';
 import { LocalImage, pickImages } from '@/lib/media';
 import { theme } from '@/lib/theme';
 import { CarCategory } from '@/types';
 
 type Mode='hub'|'car'|'post'|'event';
-const categories:CarCategory[]=['JDM','Euro','Muscle','Supercar','Hot Hatch','Track'];
+const categories:CarCategory[]=['JDM','Euro','Muscle','Supercar','Hot Hatch','Track','Outros'];
 const drivetrains=['RWD','AWD','FWD'];
 const fuels=['Gasolina','Etanol','Flex','Diesel','Elétrico','Híbrido'];
 
@@ -230,20 +230,17 @@ export default function CreateScreen(){
           </Pressable>
           {eventLatitude!=null&&eventLongitude!=null&&(
             <View style={styles.eventMapPreview}>
-              <MapView
-                style={StyleSheet.absoluteFill}
-                region={{
+              <StreetMap
+                markers={[{
+                  id:'event-preview',
                   latitude:eventLatitude,
                   longitude:eventLongitude,
-                  latitudeDelta:0.012,
-                  longitudeDelta:0.012,
-                }}
-                loadingEnabled
-                loadingBackgroundColor="#08090B"
-                loadingIndicatorColor={theme.colors.accent}
-              >
-                <Marker coordinate={{latitude:eventLatitude,longitude:eventLongitude}} pinColor={theme.colors.accent}/>
-              </MapView>
+                  title:eventTitle || 'Novo evento',
+                  subtitle:[eventVenue,eventCity,eventState].filter(Boolean).join(' · '),
+                }]}
+                initialCenter={{latitude:eventLatitude,longitude:eventLongitude}}
+                zoom={16}
+              />
             </View>
           )}
           <PrimaryButton onPress={()=>{void saveEvent();}} disabled={saving} style={styles.save}>{saving?'Criando...':'Criar evento'}</PrimaryButton>

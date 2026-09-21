@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { AppImage } from '@/components/AppImage';
@@ -14,6 +14,8 @@ type ProfileTab=typeof tabs[number];
 
 export default function GarageScreen(){
   const {section}=useLocalSearchParams<{section?:string}>();
+  const {width}=useWindowDimensions();
+  const postCellSize=Math.floor((width-12)/3);
   const {cars,posts,events,profile,myUserId,loading,refreshRemoteData}=useApp();
   const [tab,setTab]=useState<ProfileTab>('Garagem');
 
@@ -90,7 +92,7 @@ export default function GarageScreen(){
 
         {tab==='Posts' && <View style={styles.section}>
           {myPosts.length===0 ? <Empty icon="images-outline" text="Você ainda não publicou nada." action="Criar post" onPress={()=>router.push('/(tabs)/create')}/> :
-            <View style={styles.postGrid}>{myPosts.map((post)=><Pressable key={post.id} style={styles.postCell} onPress={()=>router.push('/post/'+post.id)}><AppImage uri={post.image} fallbackUri={post.carId?carsById.get(post.carId)?.image:null} style={StyleSheet.absoluteFill} placeholder={<Ionicons name="image-outline" size={24} color={theme.colors.muted2}/>}/></Pressable>)}</View>}
+            <View style={styles.postGrid}>{myPosts.map((post)=><Pressable key={post.id} style={[styles.postCell,{width:postCellSize,height:postCellSize}]} onPress={()=>router.push('/post/'+post.id)}><AppImage uri={post.image} fallbackUri={post.carId?carsById.get(post.carId)?.image:null} style={StyleSheet.absoluteFill} placeholder={<Ionicons name="image-outline" size={24} color={theme.colors.muted2}/>}/><View style={styles.postBadge}><Ionicons name="images-outline" size={12} color={theme.colors.white}/></View></Pressable>)}</View>}
         </View>}
 
         {tab==='Eventos' && <View style={styles.section}>
@@ -141,7 +143,8 @@ const styles=StyleSheet.create({
   carName:{color:theme.colors.text,fontSize:13,fontWeight:'900'},
   carMeta:{color:theme.colors.muted,fontSize:9.5,marginTop:4},
   postGrid:{flexDirection:'row',flexWrap:'wrap',gap:3,paddingHorizontal:3},
-  postCell:{width:'32.7%',aspectRatio:1,backgroundColor:theme.colors.surface2},
+  postCell:{backgroundColor:theme.colors.surface2,borderWidth:1,borderColor:theme.colors.border,overflow:'hidden'},
+  postBadge:{position:'absolute',top:6,right:6,width:22,height:22,borderRadius:11,backgroundColor:'rgba(5,5,6,.72)',alignItems:'center',justifyContent:'center'},
   eventRow:{marginHorizontal:14,minHeight:82,borderBottomWidth:1,borderBottomColor:theme.colors.border,flexDirection:'row',alignItems:'center',gap:11},
   eventImage:{width:64,height:64,borderRadius:12},
   eventDate:{color:theme.colors.accent,fontSize:9,fontWeight:'900'},

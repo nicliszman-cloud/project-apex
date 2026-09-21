@@ -11,7 +11,7 @@ import { SocialPostCard } from '@/components/SocialPostCard';
 import { useApp } from '@/context/AppContext';
 import { theme } from '@/lib/theme';
 
-const categories = ['Para você', 'JDM', 'Euro', 'Muscle', 'Clássicos'] as const;
+const categories = ['Para você', 'JDM', 'Euro', 'Muscle', 'Clássicos', 'Outros'] as const;
 type HomeCategory = typeof categories[number];
 
 export default function FeedScreen() {
@@ -43,7 +43,7 @@ export default function FeedScreen() {
       ].filter(Boolean).join(' ').toLowerCase().includes(q);
 
       let matchesCategory = true;
-      if (category === 'JDM' || category === 'Euro' || category === 'Muscle') {
+      if (category === 'JDM' || category === 'Euro' || category === 'Muscle' || category === 'Outros') {
         matchesCategory = car?.category === category;
       } else if (category === 'Clássicos') {
         matchesCategory = Boolean(car && car.year > 0 && car.year <= 1999);

@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { AppImage } from '@/components/AppImage';
@@ -36,6 +36,8 @@ type Tab = typeof tabs[number];
 
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const {width}=useWindowDimensions();
+  const postCellSize=Math.floor((width-12)/3);
   const { myUserId, posts, events } = useApp();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [cars, setCars] = useState<PublicCar[]>([]);
@@ -179,7 +181,7 @@ export default function UserProfileScreen() {
           ))}</View>
         ) : tab === 'Posts' ? (
           userPosts.length === 0 ? <Empty icon="images-outline" text="Nenhuma publicação ainda." /> :
-          <View style={styles.postGrid}>{userPosts.map((post) => <Pressable key={post.id} style={styles.postCell} onPress={() => router.push('/post/' + post.id)}><AppImage uri={post.image} style={StyleSheet.absoluteFill} /></Pressable>)}</View>
+          <View style={styles.postGrid}>{userPosts.map((post) => <Pressable key={post.id} style={[styles.postCell,{width:postCellSize,height:postCellSize}]} onPress={() => router.push('/post/' + post.id)}><AppImage uri={post.image} style={StyleSheet.absoluteFill} placeholder={<Ionicons name="image-outline" size={24} color={theme.colors.muted2}/>}/></Pressable>)}</View>
         ) : (
           userEvents.length === 0 ? <Empty icon="calendar-outline" text="Nenhum evento criado." /> :
           userEvents.map((event) => (
@@ -238,7 +240,7 @@ const styles = StyleSheet.create({
   carTitle: { color: theme.colors.text, fontSize: 12.5, fontWeight: '900' },
   carMeta: { color: theme.colors.muted, fontSize: 9, marginTop: 4 },
   postGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 3, padding: 3 },
-  postCell: { width: '32.7%', aspectRatio: 1, backgroundColor: theme.colors.surface2 },
+  postCell: { backgroundColor: theme.colors.surface2, borderWidth: 1, borderColor: theme.colors.border, overflow: 'hidden' },
   eventRow: { minHeight: 80, marginHorizontal: 14, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: theme.colors.border },
   eventImage: { width: 62, height: 62, borderRadius: 11 },
   eventInfo: { flex: 1, marginLeft: 10 },

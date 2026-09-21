@@ -106,7 +106,6 @@ export function AppImage({
       contentFit={contentFit}
       cachePolicy="memory-disk"
       transition={120}
-      recyclingKey={resolved}
       accessibilityLabel={accessibilityLabel}
       onError={() => { void handleError(); }}
     />

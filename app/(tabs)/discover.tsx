@@ -14,7 +14,7 @@ import { theme } from '@/lib/theme';
 
 const modes=['Carros','Peças','Usuários','Eventos'] as const;
 type Mode=typeof modes[number];
-const carCategories=['Todos','JDM','Euro','Muscle','Clássicos','Track','Off-road'] as const;
+const carCategories=['Todos','JDM','Euro','Muscle','Clássicos','Track','Off-road','Outros'] as const;
 type CarFilter=typeof carCategories[number];
 const SWIPE=Dimensions.get('window').width*0.25;
 
@@ -80,7 +80,7 @@ export default function DiscoverScreen(){
     if(!isDemo && car.ownerId===myUserId) return false;
     const matchesQuery=!q || [car.make,car.model,car.ownerName,car.city,car.state].join(' ').toLowerCase().includes(q);
     let matchesFilter=true;
-    if(filter==='JDM'||filter==='Euro'||filter==='Muscle'||filter==='Track') matchesFilter=car.category===filter;
+    if(filter==='JDM'||filter==='Euro'||filter==='Muscle'||filter==='Track'||filter==='Outros') matchesFilter=car.category===filter;
     if(filter==='Clássicos') matchesFilter=car.year>0&&car.year<=1999;
     if(filter==='Off-road') matchesFilter=car.tags.some((tag)=>/off.?road|4x4/i.test(tag));
     return matchesQuery&&matchesFilter;
@@ -154,7 +154,7 @@ export default function DiscoverScreen(){
           <View style={styles.filterWrap}><SectionTabs items={carCategories} value={filter} onChange={setFilter} compact/></View>
           {loading ? <CenterState icon="car-sport-outline" title="Carregando projetos"/> : !hero ? <CenterState icon="car-sport-outline" title="Nenhum projeto encontrado" subtitle="Tente outra categoria ou busca."/> : <>
             <Pressable style={styles.hero} onPress={()=>router.push('/car/'+hero.id)}>
-              <AppImage uri={hero.image} style={StyleSheet.absoluteFill} placeholder={<Ionicons name="car-sport-outline" size={48} color={theme.colors.muted2}/>}/>
+              <AppImage uri={hero.image} fallbackUri={hero.images?.find((uri)=>uri!==hero.image) || null} style={StyleSheet.absoluteFill} placeholder={<Ionicons name="car-sport-outline" size={48} color={theme.colors.muted2}/>}/>
               <View style={styles.heroShade}/>
               <View style={styles.heroContent}>
                 <Text style={styles.heroEyebrow}>{hero.category.toUpperCase()}</Text>
@@ -166,7 +166,7 @@ export default function DiscoverScreen(){
             <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Projetos recentes</Text><Text style={styles.sectionCount}>{filteredCars.length}</Text></View>
             <View style={styles.grid}>
               {filteredCars.slice(1).map((car)=><Pressable key={car.id} style={styles.carCard} onPress={()=>router.push('/car/'+car.id)}>
-                <AppImage uri={car.image} style={styles.carImage} placeholder={<Ionicons name="car-sport-outline" size={30} color={theme.colors.muted2}/>}/>
+                <AppImage uri={car.image} fallbackUri={car.images?.find((uri)=>uri!==car.image) || null} style={styles.carImage} placeholder={<Ionicons name="car-sport-outline" size={30} color={theme.colors.muted2}/>}/>
                 <View style={styles.carBody}>
                   <Text style={styles.cardTitle} numberOfLines={1}>{car.make} {car.model}</Text>
                   <Text style={styles.cardMeta}>{car.year} · {car.currentHp} cv</Text>
@@ -213,7 +213,7 @@ export default function DiscoverScreen(){
 
             {matchCar ? <>
               <Animated.View {...panResponder.panHandlers} style={[styles.matchCard,{transform:[{translateX:position.x},{translateY:position.y},{rotate}]}]}>
-                <AppImage uri={matchCar.image} style={StyleSheet.absoluteFill} placeholder={<Ionicons name="car-sport-outline" size={48} color={theme.colors.muted2}/>}/>
+                <AppImage uri={matchCar.image} fallbackUri={matchCar.images?.find((uri)=>uri!==matchCar.image) || null} style={StyleSheet.absoluteFill} placeholder={<Ionicons name="car-sport-outline" size={48} color={theme.colors.muted2}/>}/>
                 <View style={styles.matchShade}/>
                 <View style={styles.matchInfo}><Text style={styles.matchCarTitle}>{matchCar.make} {matchCar.model}</Text><Text style={styles.matchMeta}>{matchCar.year} · {matchCar.currentHp} cv · {matchCar.drivetrain}</Text><Text style={styles.matchOwner}>{matchCar.ownerName} · {matchCar.city}, {matchCar.state}</Text></View>
               </Animated.View>
