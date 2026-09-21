@@ -234,6 +234,34 @@ function remoteImageType(buffer: ArrayBuffer, contentType?: string | null, sourc
   return null;
 }
 
+function extractImageFromHtml(html: string, pageUrl: string) {
+  const patterns = [
+    /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::secure_url)?["']/i,
+    /<meta[^>]+name=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["']/i,
+    /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image(?::src)?["']/i,
+    /<img[^>]+src=["']([^"']+)["']/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (!match?.[1]) continue;
+
+    const raw = match[1]
+      .replace(/&amp;/g, '&')
+      .replace(/&#x2F;/gi, '/')
+      .replace(/&#47;/g, '/');
+
+    try {
+      return new URL(raw, pageUrl).toString();
+    } catch {
+      return raw;
+    }
+  }
+
+  return null;
+}
+
 export async function importRemoteImage(
   userId: string,
   remoteUrl: string,
@@ -241,24 +269,44 @@ export async function importRemoteImage(
 ): Promise<string> {
   if (!supabase) throw new Error('Supabase não configurado.');
 
-  const candidates = resolveMediaCandidates(remoteUrl);
-  if (!candidates.length) throw new Error('URL de imagem vazia ou inválida.');
+  const queue = [...resolveMediaCandidates(remoteUrl)];
+  if (!queue.length) throw new Error('URL de imagem vazia ou inválida.');
 
+  const visited = new Set<string>();
   let lastError: unknown = null;
 
-  for (const candidate of candidates) {
-    if (!/^https?:\/\//i.test(candidate)) continue;
+  while (queue.length) {
+    const candidate = queue.shift()!;
+    if (!/^https?:\/\//i.test(candidate) || visited.has(candidate)) continue;
+    visited.add(candidate);
 
     try {
       const response = await fetch(candidate, {
         method: 'GET',
         headers: {
-          Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+          Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,text/html,*/*;q=0.8',
         },
       });
 
       if (!response.ok) {
         lastError = new Error('HTTP ' + response.status);
+        continue;
+      }
+
+      const contentType = response.headers.get('content-type')?.toLowerCase() || '';
+
+      if (contentType.includes('text/html')) {
+        const html = await response.text();
+        const pageImage = extractImageFromHtml(html, candidate);
+
+        if (pageImage) {
+          for (const next of resolveMediaCandidates(pageImage)) {
+            if (!visited.has(next) && !queue.includes(next)) queue.push(next);
+          }
+          continue;
+        }
+
+        lastError = new Error('A página não informou uma imagem principal.');
         continue;
       }
 
@@ -268,7 +316,7 @@ export async function importRemoteImage(
         continue;
       }
 
-      const type = remoteImageType(buffer, response.headers.get('content-type'), candidate);
+      const type = remoteImageType(buffer, contentType, candidate);
       if (!type) {
         lastError = new Error('A URL não retornou uma imagem reconhecida.');
         continue;
@@ -294,7 +342,7 @@ export async function importRemoteImage(
   }
 
   throw new Error(
-    'Não foi possível importar essa foto. O link pode exigir login, bloquear download externo ou apontar para uma página em vez do arquivo da imagem.' +
+    'Não foi possível importar essa foto. O link pode exigir login, bloquear download externo ou não expor uma imagem pública.' +
     (lastError instanceof Error && lastError.message ? ' (' + lastError.message + ')' : '')
   );
 }
