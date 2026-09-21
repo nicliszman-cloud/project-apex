@@ -1,213 +1,295 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Animated, Dimensions, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Animated, Dimensions, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Screen } from '@/components/Screen';
-import { CarCard } from '@/components/CarCard';
+import { AppImage } from '@/components/AppImage';
+import { SearchBar } from '@/components/SearchBar';
+import { SectionTabs } from '@/components/SectionTabs';
+import { PrimaryButton } from '@/components/PrimaryButton';
 import { useApp } from '@/context/AppContext';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
-import { CarCategory } from '@/types';
 
-const SWIPE = Dimensions.get('window').width * 0.28;
-const categories: Array<'Todos' | CarCategory> = ['Todos', 'JDM', 'Euro', 'Muscle', 'Supercar', 'Hot Hatch', 'Track'];
+const modes=['Carros','Peças','Usuários','Eventos'] as const;
+type Mode=typeof modes[number];
+const carCategories=['Todos','JDM','Euro','Muscle','Clássicos','Track','Off-road'] as const;
+type CarFilter=typeof carCategories[number];
+const SWIPE=Dimensions.get('window').width*0.25;
 
-export default function DiscoverScreen() {
-  const { cars, swipeCar, myUserId, isDemo, loading } = useApp();
-  const [index, setIndex] = useState(0);
-  const [match, setMatch] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [category, setCategory] = useState<'Todos' | CarCategory>('Todos');
-  const [makeQuery, setMakeQuery] = useState('');
-  const [minHp, setMinHp] = useState('');
-  const [blockedIds, setBlockedIds] = useState<string[]>([]);
-  const [evaluatedIds, setEvaluatedIds] = useState<string[]>([]);
-  const position = useRef(new Animated.ValueXY()).current;
+type Listing={
+  id:string;
+  seller_id:string;
+  title:string;
+  kind:'sell'|'trade'|'wanted';
+  price_cents:number|null;
+  currency:string;
+  image_url:string|null;
+  part_category:string|null;
+  city:string|null;
+  state:string|null;
+};
 
-  useEffect(() => {
-    async function loadRules() {
-      if (!supabase || !myUserId || isDemo) return;
-      const [blocks, swipes] = await Promise.all([
-        supabase.from('blocks').select('blocked_id').eq('blocker_id', myUserId),
-        supabase.from('swipes').select('target_car_id').eq('user_id', myUserId),
+type UserCard={
+  id:string;
+  display_name:string|null;
+  username:string|null;
+  avatar_url:string|null;
+  city:string|null;
+  state:string|null;
+};
+
+export default function DiscoverScreen(){
+  const {cars,events,swipeCar,myUserId,isDemo,loading}=useApp();
+  const [mode,setMode]=useState<Mode>('Carros');
+  const [query,setQuery]=useState('');
+  const [filter,setFilter]=useState<CarFilter>('Todos');
+  const [listings,setListings]=useState<Listing[]>([]);
+  const [users,setUsers]=useState<UserCard[]>([]);
+  const [matchOpen,setMatchOpen]=useState(false);
+  const [matchIndex,setMatchIndex]=useState(0);
+  const [matched,setMatched]=useState(false);
+  const [evaluated,setEvaluated]=useState<string[]>([]);
+  const position=useRef(new Animated.ValueXY()).current;
+
+  useEffect(()=>{
+    async function loadAux(){
+      if(!supabase || isDemo) return;
+      const [listingResult,userResult,swipeResult]=await Promise.all([
+        supabase.from('marketplace_listings').select('id, seller_id, title, kind, price_cents, currency, image_url, part_category, city, state').in('status',['active','reserved']).order('created_at',{ascending:false}).limit(30),
+        supabase.from('profiles').select('id, display_name, username, avatar_url, city, state').neq('id',myUserId || '').limit(30),
+        myUserId ? supabase.from('swipes').select('target_car_id').eq('user_id',myUserId) : Promise.resolve({data:[],error:null}),
       ]);
-      setBlockedIds((blocks.data ?? []).map((row: any) => row.blocked_id));
-      setEvaluatedIds((swipes.data ?? []).map((row: any) => row.target_car_id));
+      if(!listingResult.error) setListings((listingResult.data ?? []) as Listing[]);
+      if(!userResult.error) setUsers((userResult.data ?? []) as UserCard[]);
+      setEvaluated((swipeResult.data ?? []).map((row:any)=>row.target_car_id));
     }
-    void loadRules();
-  }, [myUserId, isDemo]);
+    void loadAux();
+  },[myUserId,isDemo]);
 
-  const discoverCars = useMemo(() => {
-    const q = makeQuery.trim().toLowerCase();
-    const hp = Number(minHp || 0);
-    return cars.filter((item) => {
-      if (!isDemo && item.ownerId === myUserId) return false;
-      if (!isDemo && blockedIds.includes(item.ownerId)) return false;
-      if (!isDemo && evaluatedIds.includes(item.id)) return false;
-      if (category !== 'Todos' && item.category !== category) return false;
-      if (q && !(item.make + ' ' + item.model).toLowerCase().includes(q)) return false;
-      if (hp && item.currentHp < hp) return false;
-      return true;
+  const q=query.trim().toLowerCase();
+
+  const filteredCars=useMemo(()=>cars.filter((car)=>{
+    if(!isDemo && car.ownerId===myUserId) return false;
+    const matchesQuery=!q || [car.make,car.model,car.ownerName,car.city,car.state].join(' ').toLowerCase().includes(q);
+    let matchesFilter=true;
+    if(filter==='JDM'||filter==='Euro'||filter==='Muscle'||filter==='Track') matchesFilter=car.category===filter;
+    if(filter==='Clássicos') matchesFilter=car.year>0&&car.year<=1999;
+    if(filter==='Off-road') matchesFilter=car.tags.some((tag)=>/off.?road|4x4/i.test(tag));
+    return matchesQuery&&matchesFilter;
+  }),[cars,myUserId,isDemo,q,filter]);
+
+  const filteredListings=useMemo(()=>listings.filter((item)=>!q||[item.title,item.part_category,item.city,item.state].filter(Boolean).join(' ').toLowerCase().includes(q)),[listings,q]);
+  const filteredUsers=useMemo(()=>users.filter((item)=>!q||[item.display_name,item.username,item.city,item.state].filter(Boolean).join(' ').toLowerCase().includes(q)),[users,q]);
+  const filteredEvents=useMemo(()=>events.filter((event)=>!q||[event.title,event.city,event.place,event.category].join(' ').toLowerCase().includes(q)),[events,q]);
+
+  const matchCars=useMemo(()=>filteredCars.filter((car)=>isDemo||!evaluated.includes(car.id)),[filteredCars,evaluated,isDemo]);
+  const matchCar=matchCars[matchIndex];
+
+  useEffect(()=>{
+    if(matchIndex>=matchCars.length && matchIndex!==0) setMatchIndex(0);
+  },[matchCars.length]);
+
+  async function completeSwipe(action:'like'|'pass'){
+    if(!matchCar){position.setValue({x:0,y:0});return;}
+    try{
+      const isMatch=await swipeCar(matchCar.id,action);
+      if(!isDemo) setEvaluated((current)=>current.includes(matchCar.id)?current:[...current,matchCar.id]);
+      if(isMatch) setMatched(true);
+    }catch(error:any){
+      Alert.alert('Garage Match',error?.message ?? 'Não foi possível registrar a ação.');
+    }
+    position.setValue({x:0,y:0});
+  }
+
+  function fling(direction:'left'|'right'){
+    Animated.timing(position,{toValue:{x:direction==='right'?650:-650,y:0},duration:210,useNativeDriver:true}).start(()=>{
+      void completeSwipe(direction==='right'?'like':'pass');
     });
-  }, [cars, myUserId, isDemo, blockedIds, evaluatedIds, category, makeQuery, minHp]);
-
-  const car = discoverCars[index];
-
-  useEffect(() => {
-    if (index >= discoverCars.length && index !== 0) setIndex(0);
-  }, [discoverCars.length]);
-
-  async function complete(direction: 'left' | 'right') {
-    try {
-      if (car) {
-        const matched = await swipeCar(car.id, direction === 'right' ? 'like' : 'pass');
-        if (!isDemo) setEvaluatedIds((current) => current.includes(car.id) ? current : [...current, car.id]);
-        if (matched) setTimeout(() => setMatch(true), 220);
-      }
-    } catch (error: any) {
-      Alert.alert('Discover', error?.message ?? 'Não foi possível registrar esta ação.');
-    }
-    position.setValue({ x: 0, y: 0 });
   }
 
-  function fling(direction: 'left' | 'right') {
-    Animated.timing(position, {
-      toValue: { x: direction === 'right' ? 650 : -650, y: 0 },
-      duration: 220,
-      useNativeDriver: true,
-    }).start(() => { void complete(direction); });
-  }
-
-  async function saveCar() {
-    if (!car) return;
-    try {
-      await swipeCar(car.id, 'save');
-      if (!isDemo) setEvaluatedIds((current) => current.includes(car.id) ? current : [...current, car.id]);
-      position.setValue({ x: 0, y: 0 });
-    } catch (error: any) {
-      Alert.alert('Salvar', error?.message ?? 'Não foi possível salvar.');
-    }
-  }
-
-  const panResponder = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 8,
-    onPanResponderMove: (_, g) => position.setValue({ x: g.dx, y: g.dy * 0.18 }),
-    onPanResponderRelease: (_, g) => {
-      if (g.dx > SWIPE) fling('right');
-      else if (g.dx < -SWIPE) fling('left');
-      else Animated.spring(position, { toValue: { x: 0, y: 0 }, useNativeDriver: true }).start();
+  const panResponder=useMemo(()=>PanResponder.create({
+    onMoveShouldSetPanResponder:(_,g)=>Math.abs(g.dx)>8,
+    onPanResponderMove:(_,g)=>position.setValue({x:g.dx,y:g.dy*0.15}),
+    onPanResponderRelease:(_,g)=>{
+      if(g.dx>SWIPE) fling('right');
+      else if(g.dx<-SWIPE) fling('left');
+      else Animated.spring(position,{toValue:{x:0,y:0},useNativeDriver:true}).start();
     },
-  }), [car?.id, isDemo]);
+  }),[matchCar?.id,isDemo]);
 
-  const rotate = position.x.interpolate({ inputRange: [-220, 0, 220], outputRange: ['-9deg', '0deg', '9deg'] });
+  const rotate=position.x.interpolate({inputRange:[-220,0,220],outputRange:['-8deg','0deg','8deg']});
+
+  function price(item:Listing){
+    if(item.kind==='trade') return 'Troca';
+    if(item.kind==='wanted') return 'Procuro';
+    if(item.price_cents==null) return 'Consultar';
+    return new Intl.NumberFormat('pt-BR',{style:'currency',currency:item.currency||'BRL'}).format(item.price_cents/100);
+  }
+
+  const hero=filteredCars[0];
 
   return (
     <Screen>
-      <View style={styles.header}>
-        <View><Text style={styles.logo}>APEX</Text><Text style={styles.kicker}>DISCOVER</Text></View>
-        <Pressable style={styles.filter} onPress={() => setFilterOpen(true)}><Text style={styles.filterText}>Filtros ⚙</Text></Pressable>
-      </View>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.header}>
+          <Text style={styles.title}>Explorar</Text>
+          <Pressable style={styles.matchButton} onPress={()=>setMatchOpen(true)}>
+            <Ionicons name="flame-outline" size={17} color={theme.colors.accent}/>
+            <Text style={styles.matchButtonText}>Garage Match</Text>
+          </Pressable>
+        </View>
 
-      <View style={styles.activeFilters}>
-        {category !== 'Todos' && <Text style={styles.activeChip}>{category}</Text>}
-        {!!makeQuery && <Text style={styles.activeChip}>{makeQuery}</Text>}
-        {!!minHp && <Text style={styles.activeChip}>{minHp}+ cv</Text>}
-      </View>
+        <View style={styles.search}><SearchBar value={query} onChangeText={setQuery} placeholder="Buscar carros, peças, usuários, eventos..."/></View>
+        <SectionTabs items={modes} value={mode} onChange={setMode}/>
 
-      <View style={styles.stage}>
-        {loading ? <View style={styles.empty}><Text style={styles.emptyTitle}>Carregando...</Text></View> : car ? (
-          <Animated.View {...panResponder.panHandlers} style={[styles.cardWrap, { transform: [{ translateX: position.x }, { translateY: position.y }, { rotate }] }]}>
-            <CarCard car={car} onPress={() => router.push('/car/' + car.id)} />
-          </Animated.View>
-        ) : (
-          <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>🏁</Text>
-            <Text style={styles.emptyTitle}>Nenhum carro para mostrar</Text>
-            <Text style={styles.emptyText}>{isDemo ? 'Mude os filtros ou reinicie o modo demo.' : 'Você já avaliou os carros disponíveis ou os filtros estão muito específicos.'}</Text>
-            <Pressable onPress={() => { setCategory('Todos'); setMakeQuery(''); setMinHp(''); setEvaluatedIds([]); }} style={styles.reload}><Text style={styles.reloadText}>Limpar filtros/lista</Text></Pressable>
-          </View>
-        )}
-      </View>
+        {mode==='Carros' && <>
+          <View style={styles.filterWrap}><SectionTabs items={carCategories} value={filter} onChange={setFilter} compact/></View>
+          {loading ? <CenterState icon="car-sport-outline" title="Carregando projetos"/> : !hero ? <CenterState icon="car-sport-outline" title="Nenhum projeto encontrado" subtitle="Tente outra categoria ou busca."/> : <>
+            <Pressable style={styles.hero} onPress={()=>router.push('/car/'+hero.id)}>
+              <AppImage uri={hero.image} style={StyleSheet.absoluteFill} placeholder={<Ionicons name="car-sport-outline" size={48} color={theme.colors.muted2}/>}/>
+              <View style={styles.heroShade}/>
+              <View style={styles.heroContent}>
+                <Text style={styles.heroEyebrow}>{hero.category.toUpperCase()}</Text>
+                <Text style={styles.heroTitle}>{hero.make} {hero.model}</Text>
+                <Text style={styles.heroMeta}>{hero.year} · {hero.currentHp} cv · {hero.drivetrain}</Text>
+              </View>
+            </Pressable>
 
-      {car && <View style={styles.actions}>
-        <Pressable onPress={() => fling('left')} style={styles.action}><Text style={styles.no}>×</Text></Pressable>
-        <Pressable onPress={() => { void saveCar(); }} style={[styles.action, styles.small]}><Text style={styles.star}>☆</Text></Pressable>
-        <Pressable onPress={() => fling('right')} style={[styles.action, styles.yesButton]}><Text style={styles.yes}>♥</Text></Pressable>
-      </View>}
+            <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Projetos recentes</Text><Text style={styles.sectionCount}>{filteredCars.length}</Text></View>
+            <View style={styles.grid}>
+              {filteredCars.slice(1).map((car)=><Pressable key={car.id} style={styles.carCard} onPress={()=>router.push('/car/'+car.id)}>
+                <AppImage uri={car.image} style={styles.carImage} placeholder={<Ionicons name="car-sport-outline" size={30} color={theme.colors.muted2}/>}/>
+                <View style={styles.carBody}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>{car.make} {car.model}</Text>
+                  <Text style={styles.cardMeta}>{car.year} · {car.currentHp} cv</Text>
+                </View>
+              </Pressable>)}
+            </View>
+          </>}
+        </>}
 
-      <Modal visible={filterOpen} transparent animationType="slide" onRequestClose={() => setFilterOpen(false)}>
+        {mode==='Peças' && <>
+          <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Peças e anúncios</Text><Pressable onPress={()=>router.push('/marketplace')}><Text style={styles.sectionLink}>Ver tudo</Text></Pressable></View>
+          {filteredListings.length===0 ? <CenterState icon="construct-outline" title="Nenhum anúncio encontrado"/> : filteredListings.map((item)=><Pressable key={item.id} style={styles.listRow} onPress={()=>router.push('/marketplace')}>
+            <AppImage uri={item.image_url} style={styles.listImage} placeholder={<Ionicons name="construct-outline" size={24} color={theme.colors.muted2}/>}/>
+            <View style={styles.listInfo}><Text style={styles.listTitle} numberOfLines={1}>{item.title}</Text><Text style={styles.listMeta}>{item.part_category || 'Peça'} · {[item.city,item.state].filter(Boolean).join(', ') || 'Brasil'}</Text></View>
+            <Text style={styles.listPrice}>{price(item)}</Text>
+          </Pressable>)}
+        </>}
+
+        {mode==='Usuários' && <>
+          <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Pessoas da comunidade</Text></View>
+          {filteredUsers.length===0 ? <CenterState icon="people-outline" title="Nenhum usuário encontrado"/> : filteredUsers.map((user)=><Pressable key={user.id} style={styles.userRow} onPress={()=>router.push('/user/'+user.id)}>
+            <AppImage uri={user.avatar_url} style={styles.userAvatar} placeholder={<Text style={styles.userLetter}>{(user.display_name||user.username||'S')[0].toUpperCase()}</Text>}/>
+            <View style={{flex:1}}><Text style={styles.userName}>{user.display_name||user.username||'Driver'}</Text><Text style={styles.listMeta}>{user.username?'@'+user.username+' · ':''}{[user.city,user.state].filter(Boolean).join(', ')}</Text></View>
+            <Ionicons name="chevron-forward" size={18} color={theme.colors.muted2}/>
+          </Pressable>)}
+        </>}
+
+        {mode==='Eventos' && <>
+          <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Próximos eventos</Text><Pressable onPress={()=>router.push('/(tabs)/meets')}><Text style={styles.sectionLink}>Meets</Text></Pressable></View>
+          {filteredEvents.length===0 ? <CenterState icon="calendar-outline" title="Nenhum evento encontrado"/> : filteredEvents.map((event)=><Pressable key={event.id} style={styles.eventCard} onPress={()=>router.push('/event/'+event.id)}>
+            <AppImage uri={event.image} style={styles.eventImage} placeholder={<Ionicons name="calendar-outline" size={34} color={theme.colors.muted2}/>}/>
+            <View style={styles.eventBody}><Text style={styles.eventDate}>{event.date}</Text><Text style={styles.cardTitle}>{event.title}</Text><Text style={styles.listMeta}>{event.place} · {event.city}</Text></View>
+          </Pressable>)}
+        </>}
+      </ScrollView>
+
+      <Modal visible={matchOpen} transparent animationType="slide" onRequestClose={()=>setMatchOpen(false)}>
         <View style={styles.modalBackdrop}>
-          <View style={styles.filterSheet}>
-            <View style={styles.sheetHead}><Text style={styles.sheetTitle}>Filtros</Text><Pressable onPress={() => setFilterOpen(false)}><Text style={styles.close}>×</Text></Pressable></View>
-            <Text style={styles.label}>Categoria</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
-              {categories.map((item) => <Pressable key={item} onPress={() => setCategory(item)} style={[styles.categoryChip, category === item && styles.categoryChipOn]}><Text style={[styles.categoryText, category === item && styles.categoryTextOn]}>{item}</Text></Pressable>)}
-            </ScrollView>
-            <Text style={styles.label}>Marca ou modelo</Text>
-            <TextInput style={styles.input} value={makeQuery} onChangeText={setMakeQuery} placeholder="Toyota, BMW, Supra..." placeholderTextColor={theme.colors.muted} />
-            <Text style={styles.label}>Potência mínima</Text>
-            <TextInput style={styles.input} value={minHp} onChangeText={setMinHp} keyboardType="number-pad" placeholder="Ex.: 400" placeholderTextColor={theme.colors.muted} />
-            <Pressable style={styles.apply} onPress={() => { setIndex(0); setFilterOpen(false); }}><Text style={styles.applyText}>Aplicar</Text></Pressable>
-            <Pressable onPress={() => { setCategory('Todos'); setMakeQuery(''); setMinHp(''); setIndex(0); }}><Text style={styles.clear}>Limpar filtros</Text></Pressable>
+          <View style={styles.matchSheet}>
+            <View style={styles.matchHead}>
+              <View><Text style={styles.matchTitle}>Garage Match</Text><Text style={styles.matchSub}>Descubra projetos pela garagem.</Text></View>
+              <Pressable onPress={()=>setMatchOpen(false)} style={styles.close}><Ionicons name="close" size={24} color={theme.colors.text}/></Pressable>
+            </View>
+
+            {matchCar ? <>
+              <Animated.View {...panResponder.panHandlers} style={[styles.matchCard,{transform:[{translateX:position.x},{translateY:position.y},{rotate}]}]}>
+                <AppImage uri={matchCar.image} style={StyleSheet.absoluteFill} placeholder={<Ionicons name="car-sport-outline" size={48} color={theme.colors.muted2}/>}/>
+                <View style={styles.matchShade}/>
+                <View style={styles.matchInfo}><Text style={styles.matchCarTitle}>{matchCar.make} {matchCar.model}</Text><Text style={styles.matchMeta}>{matchCar.year} · {matchCar.currentHp} cv · {matchCar.drivetrain}</Text><Text style={styles.matchOwner}>{matchCar.ownerName} · {matchCar.city}, {matchCar.state}</Text></View>
+              </Animated.View>
+              <View style={styles.swipeActions}>
+                <Pressable style={styles.swipeSecondary} onPress={()=>fling('left')}><Ionicons name="close" size={27} color={theme.colors.danger}/></Pressable>
+                <Pressable style={styles.swipeSecondary} onPress={()=>{void swipeCar(matchCar.id,'save');}}><Ionicons name="bookmark-outline" size={23} color={theme.colors.text}/></Pressable>
+                <Pressable style={styles.swipePrimary} onPress={()=>fling('right')}><Ionicons name="heart" size={25} color={theme.colors.white}/></Pressable>
+              </View>
+            </> : <CenterState icon="checkmark-circle-outline" title="Você viu todos os projetos disponíveis" subtitle="Novos carros aparecerão aqui quando entrarem na comunidade."/>}
           </View>
         </View>
       </Modal>
 
-      <Modal visible={match} transparent animationType="fade">
-        <View style={styles.modalBackdrop}><View style={styles.matchCard}>
-          <Text style={styles.matchEyebrow}>GARAGE MATCH</Text>
-          <Text style={styles.matchTitle}>Vocês curtiram os carros um do outro. 🏁</Text>
-          <Text style={styles.matchSub}>{isDemo ? 'Este match é simulado no modo demo.' : 'O match foi salvo no banco e o chat está liberado para vocês.'}</Text>
-          <Pressable style={styles.message} onPress={() => { setMatch(false); router.push(isDemo ? '/chat' : '/matches'); }}><Text style={styles.messageText}>Abrir conversa</Text></Pressable>
-          <Pressable onPress={() => setMatch(false)}><Text style={styles.keep}>Continuar descobrindo</Text></Pressable>
-        </View></View>
+      <Modal visible={matched} transparent animationType="fade">
+        <View style={styles.modalCenter}><View style={styles.matchResult}><Ionicons name="flame" size={36} color={theme.colors.accent}/><Text style={styles.resultTitle}>Garage Match</Text><Text style={styles.resultText}>Vocês curtiram os projetos um do outro.</Text><PrimaryButton onPress={()=>{setMatched(false);setMatchOpen(false);router.push('/matches');}} style={{width:'100%',marginTop:20}}>Ver match</PrimaryButton><Pressable onPress={()=>setMatched(false)}><Text style={styles.keep}>Continuar explorando</Text></Pressable></View></View>
       </Modal>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  header: { paddingHorizontal: 18, paddingTop: 8, paddingBottom: 8, flexDirection: 'row', alignItems: 'center' },
-  logo: { color: 'white', fontSize: 23, fontWeight: '900', letterSpacing: 4 },
-  kicker: { color: theme.colors.accent, fontSize: 10, fontWeight: '900', letterSpacing: 2, marginTop: 2 },
-  filter: { marginLeft: 'auto', backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 99, paddingHorizontal: 13, paddingVertical: 9 },
-  filterText: { color: 'white', fontWeight: '800', fontSize: 12 },
-  activeFilters: { minHeight: 28, flexDirection: 'row', gap: 6, paddingHorizontal: 18, paddingBottom: 6 },
-  activeChip: { color: '#FF9B7A', backgroundColor: '#2B1812', borderRadius: 99, paddingHorizontal: 9, paddingVertical: 5, fontSize: 10, fontWeight: '800' },
-  stage: { flex: 1, paddingHorizontal: 14, justifyContent: 'center' },
-  cardWrap: { width: '100%' },
-  actions: { height: 98, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 20 },
-  action: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border },
-  small: { width: 50, height: 50, borderRadius: 25 },
-  yesButton: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
-  no: { color: '#E75A63', fontSize: 42, fontWeight: '300', marginTop: -5 },
-  star: { color: '#F5C451', fontSize: 28 },
-  yes: { color: 'white', fontSize: 27 },
-  empty: { backgroundColor: theme.colors.surface, borderRadius: 24, borderWidth: 1, borderColor: theme.colors.border, padding: 30, alignItems: 'center' },
-  emptyIcon: { fontSize: 48 },
-  emptyTitle: { color: 'white', fontSize: 22, fontWeight: '900', marginTop: 14, textAlign: 'center' },
-  emptyText: { color: theme.colors.muted, textAlign: 'center', lineHeight: 20, marginTop: 8 },
-  reload: { marginTop: 18, backgroundColor: theme.colors.accent, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 99 },
-  reloadText: { color: 'white', fontWeight: '900' },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,.78)', justifyContent: 'flex-end' },
-  filterSheet: { backgroundColor: '#101216', borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: 20, paddingBottom: 34, borderWidth: 1, borderColor: theme.colors.border },
-  sheetHead: { flexDirection: 'row', alignItems: 'center' },
-  sheetTitle: { color: 'white', fontSize: 24, fontWeight: '900' },
-  close: { marginLeft: 'auto', color: 'white', fontSize: 32 },
-  label: { color: '#D8DADE', fontWeight: '800', fontSize: 12, marginTop: 18, marginBottom: 7 },
-  categoryRow: { gap: 8 },
-  categoryChip: { borderWidth: 1, borderColor: theme.colors.border, borderRadius: 99, paddingHorizontal: 12, paddingVertical: 8 },
-  categoryChipOn: { backgroundColor: theme.colors.accent, borderColor: theme.colors.accent },
-  categoryText: { color: theme.colors.muted, fontWeight: '800', fontSize: 12 },
-  categoryTextOn: { color: 'white' },
-  input: { backgroundColor: theme.colors.surface2, color: 'white', borderWidth: 1, borderColor: theme.colors.border, borderRadius: 14, padding: 13 },
-  apply: { backgroundColor: theme.colors.accent, borderRadius: 14, padding: 14, alignItems: 'center', marginTop: 22 },
-  applyText: { color: 'white', fontWeight: '900' },
-  clear: { color: theme.colors.muted, textAlign: 'center', marginTop: 14, fontWeight: '800' },
-  matchCard: { backgroundColor: theme.colors.surface, padding: 26, borderRadius: 28, borderWidth: 1, borderColor: theme.colors.border, margin: 24, marginBottom: 'auto', marginTop: 'auto' },
-  matchEyebrow: { color: theme.colors.accent, fontWeight: '900', letterSpacing: 2, fontSize: 12 },
-  matchTitle: { color: 'white', fontSize: 29, fontWeight: '900', lineHeight: 34, marginTop: 8 },
-  matchSub: { color: theme.colors.muted, lineHeight: 21, marginTop: 10 },
-  message: { backgroundColor: theme.colors.accent, borderRadius: 14, padding: 15, alignItems: 'center', marginTop: 22 },
-  messageText: { color: 'white', fontWeight: '900' },
-  keep: { color: 'white', textAlign: 'center', fontWeight: '800', marginTop: 18 },
+function CenterState({icon,title,subtitle}:{icon:React.ComponentProps<typeof Ionicons>['name'];title:string;subtitle?:string}){
+  return <View style={styles.centerState}><Ionicons name={icon} size={38} color={theme.colors.muted2}/><Text style={styles.centerTitle}>{title}</Text>{!!subtitle&&<Text style={styles.centerText}>{subtitle}</Text>}</View>;
+}
+
+const styles=StyleSheet.create({
+  content:{paddingBottom:22},
+  header:{height:58,paddingHorizontal:16,flexDirection:'row',alignItems:'center'},
+  title:{color:theme.colors.text,fontSize:28,fontWeight:'900'},
+  matchButton:{marginLeft:'auto',height:36,paddingHorizontal:12,borderRadius:18,borderWidth:1,borderColor:'#4E1116',backgroundColor:'#160709',flexDirection:'row',alignItems:'center',gap:6},
+  matchButtonText:{color:theme.colors.text,fontSize:10,fontWeight:'900'},
+  search:{paddingHorizontal:14,paddingBottom:12},
+  filterWrap:{marginTop:10},
+  hero:{height:255,margin:14,borderRadius:theme.radius.lg,overflow:'hidden',borderWidth:1,borderColor:theme.colors.border,backgroundColor:theme.colors.surface},
+  heroShade:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(0,0,0,.38)'},
+  heroContent:{position:'absolute',left:16,right:16,bottom:16},
+  heroEyebrow:{color:theme.colors.accent,fontWeight:'900',fontSize:11,letterSpacing:1.8},
+  heroTitle:{color:theme.colors.white,fontSize:27,fontWeight:'900',marginTop:3},
+  heroMeta:{color:'#E0E1E4',fontSize:12,fontWeight:'700',marginTop:5},
+  sectionHead:{paddingHorizontal:14,paddingTop:12,paddingBottom:10,flexDirection:'row',alignItems:'center'},
+  sectionTitle:{color:theme.colors.text,fontSize:17,fontWeight:'900'},
+  sectionCount:{color:theme.colors.muted,fontSize:11,marginLeft:8},
+  sectionLink:{color:theme.colors.accent,fontSize:11,fontWeight:'900',marginLeft:'auto'},
+  grid:{flexDirection:'row',flexWrap:'wrap',gap:10,paddingHorizontal:14},
+  carCard:{width:'48.5%',borderRadius:theme.radius.md,overflow:'hidden',borderWidth:1,borderColor:theme.colors.border,backgroundColor:theme.colors.surface},
+  carImage:{width:'100%',height:120},
+  carBody:{padding:10},
+  cardTitle:{color:theme.colors.text,fontSize:13,fontWeight:'900'},
+  cardMeta:{color:theme.colors.muted,fontSize:10,marginTop:4},
+  listRow:{minHeight:82,marginHorizontal:14,borderBottomWidth:1,borderBottomColor:theme.colors.border,flexDirection:'row',alignItems:'center',paddingVertical:10},
+  listImage:{width:62,height:62,borderRadius:12},
+  listInfo:{flex:1,marginLeft:11},
+  listTitle:{color:theme.colors.text,fontSize:13,fontWeight:'900'},
+  listMeta:{color:theme.colors.muted,fontSize:10,marginTop:4},
+  listPrice:{color:theme.colors.text,fontSize:12,fontWeight:'900',marginLeft:10},
+  userRow:{minHeight:70,marginHorizontal:14,borderBottomWidth:1,borderBottomColor:theme.colors.border,flexDirection:'row',alignItems:'center'},
+  userAvatar:{width:46,height:46,borderRadius:23,marginRight:11},
+  userLetter:{color:theme.colors.text,fontWeight:'900'},
+  userName:{color:theme.colors.text,fontWeight:'900',fontSize:13},
+  eventCard:{marginHorizontal:14,marginBottom:12,borderWidth:1,borderColor:theme.colors.border,borderRadius:theme.radius.md,overflow:'hidden',backgroundColor:theme.colors.surface,flexDirection:'row'},
+  eventImage:{width:112,height:98},
+  eventBody:{flex:1,padding:12},
+  eventDate:{color:theme.colors.accent,fontSize:9,fontWeight:'900',marginBottom:4},
+  centerState:{margin:18,padding:32,alignItems:'center',borderWidth:1,borderColor:theme.colors.border,borderRadius:theme.radius.lg,backgroundColor:theme.colors.surface},
+  centerTitle:{color:theme.colors.text,fontSize:17,fontWeight:'900',textAlign:'center',marginTop:10},
+  centerText:{color:theme.colors.muted,textAlign:'center',lineHeight:18,marginTop:6},
+  modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,.82)',justifyContent:'flex-end'},
+  matchSheet:{backgroundColor:theme.colors.backgroundSoft,borderTopLeftRadius:24,borderTopRightRadius:24,borderWidth:1,borderColor:theme.colors.border,padding:16,paddingBottom:26},
+  matchHead:{flexDirection:'row',alignItems:'center',marginBottom:14},
+  matchTitle:{color:theme.colors.text,fontSize:23,fontWeight:'900'},
+  matchSub:{color:theme.colors.muted,fontSize:11,marginTop:3},
+  close:{marginLeft:'auto',width:38,height:38,borderRadius:19,borderWidth:1,borderColor:theme.colors.border,alignItems:'center',justifyContent:'center'},
+  matchCard:{height:430,borderRadius:20,overflow:'hidden',borderWidth:1,borderColor:theme.colors.border},
+  matchShade:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(0,0,0,.28)'},
+  matchInfo:{position:'absolute',left:18,right:18,bottom:18},
+  matchCarTitle:{color:theme.colors.white,fontSize:27,fontWeight:'900'},
+  matchMeta:{color:'#E3E4E6',fontSize:12,fontWeight:'800',marginTop:5},
+  matchOwner:{color:'#C1C3C7',fontSize:10,marginTop:5},
+  swipeActions:{flexDirection:'row',justifyContent:'center',alignItems:'center',gap:18,marginTop:16},
+  swipeSecondary:{width:52,height:52,borderRadius:26,borderWidth:1,borderColor:theme.colors.border,backgroundColor:theme.colors.surface,alignItems:'center',justifyContent:'center'},
+  swipePrimary:{width:62,height:62,borderRadius:31,backgroundColor:theme.colors.accent,alignItems:'center',justifyContent:'center'},
+  modalCenter:{flex:1,backgroundColor:'rgba(0,0,0,.85)',justifyContent:'center',padding:24},
+  matchResult:{padding:26,borderRadius:22,borderWidth:1,borderColor:theme.colors.border,backgroundColor:theme.colors.surface,alignItems:'center'},
+  resultTitle:{color:theme.colors.text,fontSize:26,fontWeight:'900',marginTop:10},
+  resultText:{color:theme.colors.muted,textAlign:'center',marginTop:6},
+  keep:{color:theme.colors.textSoft,fontSize:12,fontWeight:'800',marginTop:16},
 });

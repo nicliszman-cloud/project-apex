@@ -1,96 +1,141 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { AppImage } from '@/components/AppImage';
+import { SectionTabs } from '@/components/SectionTabs';
 import { useApp } from '@/context/AppContext';
+import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 
-export default function GarageScreen() {
-  const { cars, profile, myUserId, isDemo, loading, matches } = useApp();
-  const mine = cars.filter((c) => c.ownerId === myUserId);
-  const location = [profile?.city, profile?.state].filter(Boolean).join(' • ') || 'Localização não informada';
+const tabs=['Garagem','Posts','Eventos','Salvos'] as const;
+type ProfileTab=typeof tabs[number];
+
+export default function GarageScreen(){
+  const {cars,posts,events,profile,myUserId,loading}=useApp();
+  const [tab,setTab]=useState<ProfileTab>('Garagem');
+  const [followers,setFollowers]=useState(0);
+  const [following,setFollowing]=useState(0);
+
+  const mine=useMemo(()=>cars.filter((car)=>car.ownerId===myUserId),[cars,myUserId]);
+  const myPosts=useMemo(()=>posts.filter((post)=>post.authorId===myUserId),[posts,myUserId]);
+  const myEvents=useMemo(()=>events.filter((event)=>event.organizerId===myUserId),[events,myUserId]);
+  const location=[profile?.city,profile?.state].filter(Boolean).join(', ') || 'Brasil';
+  const hero=mine[0]?.image || null;
+
+  useEffect(()=>{
+    async function counts(){
+      if(!supabase||!myUserId) return;
+      const [a,b]=await Promise.all([
+        supabase.from('follows').select('follower_id',{count:'exact',head:true}).eq('following_id',myUserId),
+        supabase.from('follows').select('following_id',{count:'exact',head:true}).eq('follower_id',myUserId),
+      ]);
+      setFollowers(a.count ?? 0);
+      setFollowing(b.count ?? 0);
+    }
+    void counts();
+  },[myUserId]);
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.profile}>
-          <AppImage uri={profile?.avatarUrl} style={styles.avatarImage} placeholder={<Text style={styles.avatarText}>{(profile?.displayName || 'A')[0].toUpperCase()}</Text>} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.name}>{profile?.displayName || 'Seu perfil'}</Text>
-            <Text style={styles.handle}>{profile?.username ? '@' + profile.username : '@defina_seu_username'} • {location}</Text>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <View style={styles.cover}>
+          {hero ? <AppImage uri={hero} style={StyleSheet.absoluteFill} /> : <View style={styles.coverFallback}><Ionicons name="car-sport-outline" size={54} color={theme.colors.muted2}/></View>}
+          <View style={styles.coverShade}/>
+          <View style={styles.topActions}>
+            <Pressable style={styles.iconButton} onPress={()=>router.push('/profile-edit')}><Ionicons name="settings-outline" size={20} color={theme.colors.text}/></Pressable>
           </View>
-          <Pressable style={styles.settings} onPress={() => router.push('/profile-edit')}><Text>⚙️</Text></Pressable>
         </View>
 
-        {!!profile?.bio && <Text style={styles.bio}>{profile.bio}</Text>}
-        {isDemo && <View style={styles.demo}><Text style={styles.demoText}>MODO DEMO</Text></View>}
-
-        <View style={styles.stats}>
-          <View><Text style={styles.statNum}>{mine.length}</Text><Text style={styles.statLabel}>carros</Text></View>
-          <Pressable onPress={() => router.push('/matches')}><Text style={styles.statNum}>{matches.length}</Text><Text style={styles.statLabel}>matches</Text></Pressable>
-          <View><Text style={styles.statNum}>—</Text><Text style={styles.statLabel}>meets</Text></View>
+        <View style={styles.identity}>
+          <AppImage uri={profile?.avatarUrl} style={styles.avatar} placeholder={<Text style={styles.avatarLetter}>{(profile?.displayName||'S')[0].toUpperCase()}</Text>}/>
+          <Pressable style={styles.editButton} onPress={()=>router.push('/profile-edit')}><Text style={styles.editText}>Editar perfil</Text></Pressable>
         </View>
 
-        <View style={styles.quickRow}>
-          <Pressable style={styles.quick} onPress={() => router.push('/inbox')}><Text style={styles.quickIcon}>💬</Text><Text style={styles.quickText}>Mensagens</Text></Pressable>
-          <Pressable style={styles.quick} onPress={() => router.push('/marketplace')}><Text style={styles.quickIcon}>🔧</Text><Text style={styles.quickText}>Peças</Text></Pressable>
-          <Pressable style={styles.quick} onPress={() => router.push('/notifications')}><Text style={styles.quickIcon}>🔔</Text><Text style={styles.quickText}>Notificações</Text></Pressable>
+        <View style={styles.profileBody}>
+          <Text style={styles.name}>{profile?.displayName || 'StreetClub Driver'}</Text>
+          <Text style={styles.handle}>{profile?.username ? '@'+profile.username : '@streetclub'} · {location}</Text>
+          {!!profile?.bio && <Text style={styles.bio}>{profile.bio}</Text>}
+
+          <View style={styles.stats}>
+            <View style={styles.stat}><Text style={styles.statNumber}>{myPosts.length}</Text><Text style={styles.statLabel}>posts</Text></View>
+            <View style={styles.stat}><Text style={styles.statNumber}>{followers}</Text><Text style={styles.statLabel}>seguidores</Text></View>
+            <View style={styles.stat}><Text style={styles.statNumber}>{following}</Text><Text style={styles.statLabel}>seguindo</Text></View>
+          </View>
         </View>
 
-        <Pressable style={styles.publicProfile} onPress={() => myUserId && router.push('/user/' + myUserId)}>
-          <Text style={styles.publicProfileText}>Ver meu perfil público</Text><Text style={styles.publicProfileArrow}>›</Text>
-        </Pressable>
+        <View style={styles.tabsWrap}><SectionTabs items={tabs} value={tab} onChange={setTab}/></View>
 
-        <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Minha garagem</Text><Pressable onPress={() => router.push('/(tabs)/create')}><Text style={styles.add}>＋ Adicionar</Text></Pressable></View>
+        {tab==='Garagem' && <View style={styles.section}>
+          <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Minha garagem</Text><Pressable onPress={()=>router.push('/(tabs)/create')} style={styles.addButton}><Ionicons name="add" size={18} color={theme.colors.accent}/><Text style={styles.addText}>Carro</Text></Pressable></View>
+          {loading ? <Empty icon="hourglass-outline" text="Carregando garagem..."/> : mine.length===0 ? <Empty icon="car-sport-outline" text="Sua garagem ainda está vazia." action="Cadastrar carro" onPress={()=>router.push('/(tabs)/create')}/> :
+            <View style={styles.carGrid}>{mine.map((car)=><Pressable key={car.id} style={styles.carCard} onPress={()=>router.push('/car/'+car.id)}>
+              <AppImage uri={car.image} style={styles.carImage} placeholder={<Ionicons name="car-sport-outline" size={28} color={theme.colors.muted2}/>}/>
+              <View style={styles.carInfo}><Text style={styles.carName} numberOfLines={1}>{car.make} {car.model}</Text><Text style={styles.carMeta}>{car.year} · {car.currentHp} cv · {car.drivetrain}</Text></View>
+            </Pressable>)}</View>}
+        </View>}
 
-        {loading ? <Text style={styles.emptyText}>Carregando sua garagem...</Text> : mine.length === 0 ? (
-          <View style={styles.empty}><Text style={styles.emptyIcon}>🏎️</Text><Text style={styles.emptyTitle}>Sua garagem está vazia</Text><Text style={styles.emptyText}>Cadastre seu primeiro carro com fotos, ficha técnica e build.</Text><Pressable style={styles.emptyButton} onPress={() => router.push('/(tabs)/create')}><Text style={styles.emptyButtonText}>Adicionar primeiro carro</Text></Pressable></View>
-        ) : mine.map((car) => (
-          <Pressable key={car.id} style={styles.car} onPress={() => router.push('/car/' + car.id)}>
-            <AppImage uri={car.image} style={styles.carImage} placeholder={<Text style={styles.carIcon}>🏎️</Text>} />
-            <View style={styles.carInfo}><Text style={styles.carTitle}>{car.make} {car.model}</Text><Text style={styles.carMeta}>{car.year} • {car.currentHp} cv • {car.drivetrain} • {car.category}</Text><Text style={styles.build}>{car.modifications.length ? car.modifications.slice(0, 3).join('  •  ') : 'Projeto sem modificações cadastradas'}</Text></View>
-          </Pressable>
-        ))}
+        {tab==='Posts' && <View style={styles.section}>
+          {myPosts.length===0 ? <Empty icon="images-outline" text="Você ainda não publicou nada." action="Criar post" onPress={()=>router.push('/(tabs)/create')}/> :
+            <View style={styles.postGrid}>{myPosts.map((post)=><Pressable key={post.id} style={styles.postCell} onPress={()=>router.push('/post/'+post.id)}><AppImage uri={post.image} style={StyleSheet.absoluteFill}/></Pressable>)}</View>}
+        </View>}
+
+        {tab==='Eventos' && <View style={styles.section}>
+          {myEvents.length===0 ? <Empty icon="calendar-outline" text="Nenhum evento criado por você." action="Criar evento" onPress={()=>router.push('/(tabs)/create')}/> :
+            myEvents.map((event)=><Pressable key={event.id} style={styles.eventRow} onPress={()=>router.push('/event/'+event.id)}><AppImage uri={event.image} style={styles.eventImage}/><View style={{flex:1}}><Text style={styles.eventDate}>{event.date}</Text><Text style={styles.eventTitle}>{event.title}</Text><Text style={styles.eventMeta}>{event.place} · {event.city}</Text></View><Ionicons name="chevron-forward" size={18} color={theme.colors.muted2}/></Pressable>)}
+        </View>}
+
+        {tab==='Salvos' && <View style={styles.section}><Empty icon="bookmark-outline" text="Seus itens salvos aparecerão aqui."/></View>}
       </ScrollView>
     </Screen>
   );
 }
 
-const styles = StyleSheet.create({
-  content: { padding: 18, paddingBottom: 36 },
-  profile: { flexDirection: 'row', alignItems: 'center' },
-  avatarImage: { width: 64, height: 64, borderRadius: 22 },
-  avatarText: { color: 'white', fontWeight: '900', fontSize: 26 },
-  name: { color: 'white', fontSize: 24, fontWeight: '900', marginLeft: 14 },
-  handle: { color: theme.colors.muted, marginLeft: 14, marginTop: 3, fontSize: 12 },
-  settings: { width: 42, height: 42, borderRadius: 15, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center', justifyContent: 'center' },
-  bio: { color: '#D7DADE', lineHeight: 20, marginTop: 14 },
-  demo: { alignSelf: 'flex-start', backgroundColor: '#31251A', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 99, marginTop: 12 },
-  demoText: { color: '#F5C451', fontWeight: '900', fontSize: 9, letterSpacing: 1 },
-  stats: { marginTop: 22, backgroundColor: theme.colors.surface, borderRadius: 18, borderWidth: 1, borderColor: theme.colors.border, flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 16 },
-  statNum: { color: 'white', fontWeight: '900', fontSize: 19, textAlign: 'center' },
-  statLabel: { color: theme.colors.muted, fontSize: 11, marginTop: 3 },
-  quickRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  quick: { flex: 1, backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 15, padding: 12, alignItems: 'center' },
-  quickIcon: { fontSize: 20 },
-  quickText: { color: 'white', fontWeight: '800', fontSize: 10, marginTop: 5, textAlign: 'center' },
-  publicProfile: { flexDirection: 'row', alignItems: 'center', marginTop: 9, padding: 13, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 15 },
-  publicProfileText: { color: '#D7DADE', fontWeight: '800' },
-  publicProfileArrow: { color: theme.colors.muted, fontSize: 24, marginLeft: 'auto' },
-  sectionHead: { flexDirection: 'row', alignItems: 'center', marginTop: 28, marginBottom: 12 },
-  sectionTitle: { color: 'white', fontSize: 19, fontWeight: '900' },
-  add: { color: theme.colors.accent, fontWeight: '900', marginLeft: 'auto' },
-  car: { borderRadius: 22, overflow: 'hidden', backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, marginBottom: 14 },
-  carImage: { width: '100%', height: 225 },
-  carIcon: { fontSize: 44 },
-  carInfo: { padding: 15 },
-  carTitle: { color: 'white', fontSize: 21, fontWeight: '900' },
-  carMeta: { color: '#D6D8DC', marginTop: 5, fontWeight: '700' },
-  build: { color: theme.colors.muted, marginTop: 8, fontSize: 12 },
-  empty: { backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 22, padding: 24, alignItems: 'center' },
-  emptyIcon: { fontSize: 42 },
-  emptyTitle: { color: 'white', fontSize: 20, fontWeight: '900', marginTop: 10 },
-  emptyText: { color: theme.colors.muted, textAlign: 'center', lineHeight: 20, marginTop: 7 },
-  emptyButton: { backgroundColor: theme.colors.accent, borderRadius: 14, paddingHorizontal: 18, paddingVertical: 12, marginTop: 17 },
-  emptyButtonText: { color: 'white', fontWeight: '900' },
+function Empty({icon,text,action,onPress}:{icon:React.ComponentProps<typeof Ionicons>['name'];text:string;action?:string;onPress?:()=>void}){
+  return <View style={styles.empty}><Ionicons name={icon} size={34} color={theme.colors.muted2}/><Text style={styles.emptyText}>{text}</Text>{action&&<Pressable onPress={onPress}><Text style={styles.emptyAction}>{action}</Text></Pressable>}</View>;
+}
+
+const styles=StyleSheet.create({
+  content:{paddingBottom:24},
+  cover:{height:168,backgroundColor:theme.colors.surface,overflow:'hidden'},
+  coverFallback:{...StyleSheet.absoluteFillObject,alignItems:'center',justifyContent:'center',backgroundColor:'#0A0B0D'},
+  coverShade:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(0,0,0,.42)'},
+  topActions:{position:'absolute',top:12,right:14,flexDirection:'row'},
+  iconButton:{width:40,height:40,borderRadius:20,backgroundColor:'rgba(5,5,6,.72)',borderWidth:1,borderColor:'rgba(255,255,255,.12)',alignItems:'center',justifyContent:'center'},
+  identity:{paddingHorizontal:16,marginTop:-37,flexDirection:'row',alignItems:'flex-end'},
+  avatar:{width:82,height:82,borderRadius:41,borderWidth:3,borderColor:theme.colors.background},
+  avatarLetter:{color:theme.colors.text,fontSize:28,fontWeight:'900'},
+  editButton:{marginLeft:'auto',marginBottom:5,height:36,paddingHorizontal:14,borderRadius:18,borderWidth:1,borderColor:theme.colors.borderStrong,alignItems:'center',justifyContent:'center',backgroundColor:theme.colors.surface},
+  editText:{color:theme.colors.text,fontSize:11,fontWeight:'900'},
+  profileBody:{paddingHorizontal:16,paddingTop:10},
+  name:{color:theme.colors.text,fontSize:23,fontWeight:'900'},
+  handle:{color:theme.colors.muted,fontSize:11,marginTop:3},
+  bio:{color:theme.colors.textSoft,fontSize:12.5,lineHeight:18,marginTop:11,maxWidth:340},
+  stats:{flexDirection:'row',gap:30,marginTop:18},
+  stat:{alignItems:'flex-start'},
+  statNumber:{color:theme.colors.text,fontSize:17,fontWeight:'900'},
+  statLabel:{color:theme.colors.muted,fontSize:10,marginTop:2},
+  tabsWrap:{paddingTop:22,paddingBottom:6,borderBottomWidth:1,borderBottomColor:theme.colors.border},
+  section:{paddingTop:8},
+  sectionHead:{paddingHorizontal:14,paddingVertical:9,flexDirection:'row',alignItems:'center'},
+  sectionTitle:{color:theme.colors.text,fontSize:16,fontWeight:'900'},
+  addButton:{marginLeft:'auto',flexDirection:'row',alignItems:'center',gap:4},
+  addText:{color:theme.colors.accent,fontSize:11,fontWeight:'900'},
+  carGrid:{flexDirection:'row',flexWrap:'wrap',gap:10,paddingHorizontal:14},
+  carCard:{width:'48.5%',backgroundColor:theme.colors.surface,borderWidth:1,borderColor:theme.colors.border,borderRadius:theme.radius.md,overflow:'hidden'},
+  carImage:{width:'100%',height:118},
+  carInfo:{padding:10},
+  carName:{color:theme.colors.text,fontSize:13,fontWeight:'900'},
+  carMeta:{color:theme.colors.muted,fontSize:9.5,marginTop:4},
+  postGrid:{flexDirection:'row',flexWrap:'wrap',gap:3,paddingHorizontal:3},
+  postCell:{width:'32.7%',aspectRatio:1,backgroundColor:theme.colors.surface2},
+  eventRow:{marginHorizontal:14,minHeight:82,borderBottomWidth:1,borderBottomColor:theme.colors.border,flexDirection:'row',alignItems:'center',gap:11},
+  eventImage:{width:64,height:64,borderRadius:12},
+  eventDate:{color:theme.colors.accent,fontSize:9,fontWeight:'900'},
+  eventTitle:{color:theme.colors.text,fontSize:13,fontWeight:'900',marginTop:3},
+  eventMeta:{color:theme.colors.muted,fontSize:9.5,marginTop:3},
+  empty:{margin:14,padding:28,borderWidth:1,borderColor:theme.colors.border,borderRadius:theme.radius.lg,alignItems:'center',backgroundColor:theme.colors.surface},
+  emptyText:{color:theme.colors.muted,textAlign:'center',marginTop:9},
+  emptyAction:{color:theme.colors.accent,fontWeight:'900',fontSize:12,marginTop:12},
 });
