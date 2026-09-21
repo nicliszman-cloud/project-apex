@@ -23,7 +23,7 @@ export default function MenuScreen() {
     { icon: 'calendar-outline', label: 'Meus eventos', action: () => router.push({ pathname: '/(tabs)/garage', params: { section: 'Eventos' } }) },
     { icon: 'chatbubbles-outline', label: 'Mensagens', action: () => router.push('/(tabs)/inbox') },
     { icon: 'notifications-outline', label: 'Notificações', action: () => router.push('/notifications') },
-    { icon: 'settings-outline', label: 'Configurações', action: () => router.push('/profile-edit') },
+    { icon: 'settings-outline', label: 'Configurações', action: () => router.push('/settings') },
     { icon: 'help-circle-outline', label: 'Ajuda e suporte', action: () => router.push('/support') },
   ];
 
