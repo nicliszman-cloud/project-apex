@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     borderColor: '#41090E',
   },
   mapLoading: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#08090B',
     alignItems: 'center',
     justifyContent: 'center',
