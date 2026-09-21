@@ -189,6 +189,7 @@ const styles=StyleSheet.create({
   photoEmpty:{minHeight:128,alignItems:'center',justifyContent:'center',padding:20},
   photoTitle:{color:theme.colors.text,fontSize:13,fontWeight:'900',marginTop:8},
   photoSub:{color:theme.colors.muted,fontSize:9.5,marginTop:4},
+  urlHelp:{color:theme.colors.muted2,fontSize:9.5,lineHeight:14,marginTop:6},
   postPhoto:{height:260,borderWidth:1,borderStyle:'dashed',borderColor:theme.colors.borderStrong,borderRadius:theme.radius.lg,overflow:'hidden',backgroundColor:theme.colors.surface},
   infoRow:{flexDirection:'row',alignItems:'center',gap:8,minHeight:44,borderBottomWidth:1,borderBottomColor:theme.colors.border},
   infoText:{color:theme.colors.muted,fontSize:11},
