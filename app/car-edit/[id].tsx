@@ -6,7 +6,7 @@ import { Screen } from '@/components/Screen';
 import { AppImage } from '@/components/AppImage';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { useApp } from '@/context/AppContext';
-import { importRemoteImage, LocalImage, pickImages, storagePathFromPublicUrl, uploadPublicImage } from '@/lib/media';
+import { LocalImage, pickImages, resolveMediaUrl, storagePathFromPublicUrl, uploadPublicImage } from '@/lib/media';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 import { CarCategory } from '@/types';
@@ -45,7 +45,10 @@ export default function CarEditScreen(){
         const urls:string[]=[];
         for(const image of replacementImages.slice(0,6)) urls.push(await uploadPublicImage(myUserId,image,'cars/'+car.id));
         const remaining=Math.max(0,6-urls.length);
-        for(const remoteUrl of remoteUrls.slice(0,remaining)) urls.push(await importRemoteImage(myUserId,remoteUrl,'cars/'+car.id));
+        for(const remoteUrl of remoteUrls.slice(0,remaining)){
+          const resolved=resolveMediaUrl(remoteUrl)||remoteUrl.trim();
+          if(resolved) urls.push(resolved);
+        }
         if(urls.length){
           const {error:deleteRowsError}=await supabase.from('car_photos').delete().eq('car_id',car.id);if(deleteRowsError)throw deleteRowsError;
           const {error:insertError}=await supabase.from('car_photos').insert(urls.map((url,position)=>({car_id:car.id,url,position})));if(insertError)throw insertError;
@@ -75,7 +78,7 @@ export default function CarEditScreen(){
       keyboardType="url"
       placeholder={'Cole uma URL por linha\nhttps://site.com/foto1.jpg'}
     />
-    <Text style={styles.urlHelp}>URLs externas são importadas para o Storage ao salvar. A primeira foto vira a capa.</Text>
+    <Text style={styles.urlHelp}>URLs externas são salvas diretamente no projeto. A primeira foto vira a capa.</Text>
     <Field label="Marca" value={make} onChangeText={setMake}/><Field label="Modelo" value={model} onChangeText={setModel}/><Field label="Versão" value={version} onChangeText={setVersion}/>
     <View style={styles.row}><View style={{flex:1}}><Field label="Ano" value={year} onChangeText={setYear} keyboardType="number-pad"/></View><View style={{flex:1}}><Field label="Potência atual" value={currentHp} onChangeText={setCurrentHp} keyboardType="number-pad"/></View></View>
     <Field label="Motor" value={engine} onChangeText={setEngine}/><Field label="Câmbio" value={transmission} onChangeText={setTransmission}/><Field label="Tração" value={drivetrain} onChangeText={setDrivetrain}/>

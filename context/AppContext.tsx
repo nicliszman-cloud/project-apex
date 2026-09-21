@@ -1,6 +1,6 @@
 import React, { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { demoCars, demoEvents, demoPosts } from '@/data/mock';
-import { importRemoteImage, LocalImage, uploadPublicImage } from '@/lib/media';
+import { LocalImage, resolveMediaUrl, uploadPublicImage } from '@/lib/media';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { Car, CarCategory, CarEvent, FeedPost, MatchSummary, Profile } from '@/types';
 
@@ -402,7 +402,8 @@ export function AppProvider({ children }: PropsWithChildren) {
 
       const remaining = Math.max(0, 6 - urls.length);
       for (const remoteUrl of remoteUrls.slice(0, remaining)) {
-        urls.push(await importRemoteImage(myUserId, remoteUrl, `cars/${inserted.id}`));
+        const resolved = resolveMediaUrl(remoteUrl) || remoteUrl.trim();
+        if (resolved) urls.push(resolved);
       }
 
       if (urls.length) {
