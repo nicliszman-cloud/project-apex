@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,44 +9,26 @@ import { useApp } from '@/context/AppContext';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 
-type ChatMessage = {
-  id: string;
-  senderId: string;
-  text: string;
-  createdAt: string;
-  listingId?: string | null;
-};
-
-type Partner = {
-  id: string;
-  name: string;
-  avatar?: string | null;
-};
-
-type ListingContext = {
-  id: string;
-  title: string;
-  image_url: string | null;
-  price_cents: number | null;
-  currency: string;
-  kind: 'sell' | 'trade' | 'wanted';
-};
+type ChatMessage = { id: string; senderId: string; text: string; createdAt: string; listingId?: string | null; };
+type Partner = { id: string; name: string; username?: string | null; avatar?: string | null; };
+type ListingContext = { id: string; title: string; image_url: string | null; price_cents: number | null; currency: string; kind: 'sell' | 'trade' | 'wanted'; };
 
 export default function ChatScreen() {
   const { conversationId, listingId } = useLocalSearchParams<{ conversationId?: string; listingId?: string }>();
   const { myUserId, isDemo } = useApp();
   const insets = useSafeAreaInsets();
+  const listRef = useRef<FlatList<ChatMessage>>(null);
   const [text, setText] = useState('');
   const [partner, setPartner] = useState<Partner | null>(null);
   const [listing, setListing] = useState<ListingContext | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>(isDemo || !conversationId ? [
-    { id: '1', senderId: 'other', text: 'Oi! Vi seu projeto no APEX.', createdAt: new Date().toISOString() },
-    { id: '2', senderId: 'me', text: 'Valeu! O que achou?', createdAt: new Date().toISOString() },
-  ] : []);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(Boolean(conversationId && !isDemo));
 
   useEffect(() => {
-    if (isDemo || !conversationId || !supabase || !myUserId) return;
+    if (isDemo || !conversationId || !supabase || !myUserId) {
+      setLoading(false);
+      return;
+    }
 
     let active = true;
 
@@ -70,24 +53,12 @@ export default function ChatScreen() {
 
       if (!active) return;
 
-      if (profile) {
-        setPartner({
-          id: profile.id,
-          name: profile.display_name || profile.username || 'Driver',
-          avatar: profile.avatar_url,
-        });
-      }
+      if (profile) setPartner({ id: profile.id, name: profile.display_name || profile.username || 'Driver', username: profile.username, avatar: profile.avatar_url });
 
       if (messagesError) {
         Alert.alert('Chat', messagesError.message);
       } else {
-        setMessages((rows ?? []).map((row: any) => ({
-          id: row.id,
-          senderId: row.sender_id,
-          text: row.body,
-          listingId: row.listing_id,
-          createdAt: row.created_at,
-        })));
+        setMessages((rows ?? []).map((row: any) => ({ id: row.id, senderId: row.sender_id, text: row.body, listingId: row.listing_id, createdAt: row.created_at })));
       }
 
       if (listingId) {
@@ -113,26 +84,11 @@ export default function ChatScreen() {
 
     const channel = supabase
       .channel('conversation-' + conversationId)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'direct_messages',
-        filter: 'conversation_id=eq.' + conversationId,
-      }, (payload: any) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages', filter: 'conversation_id=eq.' + conversationId }, (payload: any) => {
         const row = payload.new;
-        setMessages((current) => current.some((item) => item.id === row.id) ? current : [...current, {
-          id: row.id,
-          senderId: row.sender_id,
-          text: row.body,
-          listingId: row.listing_id,
-          createdAt: row.created_at,
-        }]);
-
+        setMessages((current) => current.some((item) => item.id === row.id) ? current : [...current, { id: row.id, senderId: row.sender_id, text: row.body, listingId: row.listing_id, createdAt: row.created_at }]);
         if (row.sender_id !== myUserId) {
-          void supabase!
-            .from('direct_messages')
-            .update({ read_at: new Date().toISOString() })
-            .eq('id', row.id);
+          void supabase!.from('direct_messages').update({ read_at: new Date().toISOString() }).eq('id', row.id);
         }
       })
       .subscribe();
@@ -142,6 +98,12 @@ export default function ChatScreen() {
       void supabase!.removeChannel(channel);
     };
   }, [isDemo, conversationId, myUserId, listingId]);
+
+  useEffect(() => {
+    if (!messages.length) return;
+    const timer = setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 70);
+    return () => clearTimeout(timer);
+  }, [messages.length]);
 
   async function send() {
     const body = text.trim();
@@ -155,12 +117,7 @@ export default function ChatScreen() {
 
     const { data, error } = await supabase
       .from('direct_messages')
-      .insert({
-        conversation_id: conversationId,
-        sender_id: myUserId,
-        body,
-        listing_id: listingId || null,
-      })
+      .insert({ conversation_id: conversationId, sender_id: myUserId, body, listing_id: listingId || null })
       .select('id, sender_id, body, listing_id, created_at')
       .single();
 
@@ -169,13 +126,7 @@ export default function ChatScreen() {
       return Alert.alert('Não foi possível enviar', error.message);
     }
 
-    setMessages((current) => current.some((item) => item.id === data.id) ? current : [...current, {
-      id: data.id,
-      senderId: data.sender_id,
-      text: data.body,
-      listingId: data.listing_id,
-      createdAt: data.created_at,
-    }]);
+    setMessages((current) => current.some((item) => item.id === data.id) ? current : [...current, { id: data.id, senderId: data.sender_id, text: data.body, listingId: data.listing_id, createdAt: data.created_at }]);
   }
 
   const partnerName = partner?.name || 'Conversa';
@@ -191,37 +142,45 @@ export default function ChatScreen() {
 
   return (
     <Screen>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
-      >
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()}><Text style={styles.back}>‹</Text></Pressable>
-          <AppImage uri={partner?.avatar} style={styles.avatarImage} placeholder={<Text style={styles.avatarText}>{partnerInitial}</Text>} />
-          <Pressable style={{ flex: 1 }} onPress={() => partner?.id && router.push('/user/' + partner.id)}>
-            <Text style={styles.name}>{partnerName}</Text>
-            <Text style={styles.status}>Mensagem direta</Text>
+          <Pressable onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={22} color={theme.colors.text} /></Pressable>
+          <AppImage uri={partner?.avatar} style={styles.avatar} placeholder={<Text style={styles.avatarText}>{partnerInitial}</Text>} />
+          <Pressable style={styles.partner} onPress={() => partner?.id && router.push('/user/' + partner.id)}>
+            <Text style={styles.name} numberOfLines={1}>{partnerName}</Text>
+            <Text style={styles.handle}>{partner?.username ? '@' + partner.username : 'StreetClub'}</Text>
           </Pressable>
+          <Pressable style={styles.headerIcon}><Ionicons name="ellipsis-horizontal" size={20} color={theme.colors.muted} /></Pressable>
         </View>
 
         {!!listing && (
           <Pressable style={styles.listingCard} onPress={() => router.push('/marketplace')}>
-            <AppImage uri={listing.image_url} style={styles.listingImage} placeholder={<Text style={styles.listingIcon}>🔧</Text>} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.listingLabel}>SOBRE O ANÚNCIO</Text>
+            <AppImage uri={listing.image_url} style={styles.listingImage} placeholder={<Ionicons name="construct-outline" size={24} color={theme.colors.muted2} />} />
+            <View style={styles.listingCopy}>
+              <Text style={styles.listingLabel}>ANÚNCIO</Text>
               <Text style={styles.listingTitle} numberOfLines={1}>{listing.title}</Text>
               <Text style={styles.listingPrice}>{listingPrice()}</Text>
             </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.colors.muted2} />
           </Pressable>
         )}
 
-        {loading ? <View style={styles.loading}><Text style={styles.loadingText}>Carregando conversa...</Text></View> : (
+        {loading ? (
+          <View style={styles.loading}><Text style={styles.loadingText}>Carregando conversa...</Text></View>
+        ) : messages.length === 0 ? (
+          <View style={styles.loading}>
+            <View style={styles.emptyIcon}><Ionicons name="chatbubble-ellipses-outline" size={30} color={theme.colors.accent} /></View>
+            <Text style={styles.emptyTitle}>Comece a conversa</Text>
+            <Text style={styles.loadingText}>Fale sobre o projeto, a peça ou o próximo encontro.</Text>
+          </View>
+        ) : (
           <FlatList
+            ref={listRef}
             data={messages}
-            keyExtractor={(m) => m.id}
+            keyExtractor={(item) => item.id}
             contentContainerStyle={styles.list}
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
             renderItem={({ item }) => {
               const mine = isDemo ? item.senderId === 'me' : item.senderId === myUserId;
               return (
@@ -234,7 +193,8 @@ export default function ChatScreen() {
           />
         )}
 
-        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 9) }]}>
+          <Pressable style={styles.attach}><Ionicons name="add" size={22} color={theme.colors.muted} /></Pressable>
           <TextInput
             value={text}
             onChangeText={setText}
@@ -244,7 +204,9 @@ export default function ChatScreen() {
             multiline
             maxLength={4000}
           />
-          <Pressable style={styles.send} onPress={() => { void send(); }}><Text style={styles.sendText}>➤</Text></Pressable>
+          <Pressable accessibilityLabel="Enviar" style={[styles.send, !text.trim() && styles.sendDisabled]} onPress={() => { void send(); }} disabled={!text.trim()}>
+            <Ionicons name="arrow-up" size={20} color={theme.colors.white} />
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
     </Screen>
@@ -252,28 +214,34 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { minHeight: 68, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
-  back: { color: 'white', fontSize: 38, marginRight: 10, marginTop: -4 },
-  avatarImage: { width: 40, height: 40, borderRadius: 20, backgroundColor: theme.colors.surface2 },
-  avatarText: { color: 'white', fontWeight: '900' },
-  name: { color: 'white', fontWeight: '900', marginLeft: 10 },
-  status: { color: theme.colors.muted, fontSize: 10, marginLeft: 10, marginTop: 2 },
-  listingCard: { flexDirection: 'row', alignItems: 'center', gap: 11, margin: 10, padding: 10, borderRadius: 16, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
-  listingImage: { width: 58, height: 58, borderRadius: 12 },
-  listingIcon: { fontSize: 24 },
-  listingLabel: { color: theme.colors.accent, fontWeight: '900', fontSize: 9, letterSpacing: 1 },
-  listingTitle: { color: 'white', fontWeight: '900', marginTop: 3 },
-  listingPrice: { color: theme.colors.muted, marginTop: 3, fontSize: 11 },
-  list: { padding: 14, gap: 8, paddingBottom: 18 },
-  bubble: { maxWidth: '82%', borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 },
+  flex: { flex: 1 },
+  header: { minHeight: 62, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
+  back: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: theme.colors.borderStrong },
+  avatarText: { color: theme.colors.text, fontWeight: '900' },
+  partner: { flex: 1, marginLeft: 9 },
+  name: { color: theme.colors.text, fontWeight: '900', fontSize: 13.5 },
+  handle: { color: theme.colors.muted, fontSize: 9.5, marginTop: 2 },
+  headerIcon: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center' },
+  listingCard: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 10, marginTop: 8, padding: 8, borderRadius: theme.radius.md, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
+  listingImage: { width: 52, height: 52, borderRadius: 10 },
+  listingCopy: { flex: 1, marginLeft: 10 },
+  listingLabel: { color: theme.colors.accent, fontWeight: '900', fontSize: 8, letterSpacing: 1 },
+  listingTitle: { color: theme.colors.text, fontWeight: '900', marginTop: 3, fontSize: 11.5 },
+  listingPrice: { color: theme.colors.muted, marginTop: 3, fontSize: 9.5 },
+  list: { paddingHorizontal: 12, paddingTop: 16, paddingBottom: 18, gap: 7 },
+  bubble: { maxWidth: '79%', borderRadius: 18, paddingHorizontal: 12, paddingVertical: 9 },
   mine: { alignSelf: 'flex-end', backgroundColor: theme.colors.accent, borderBottomRightRadius: 5 },
-  theirs: { alignSelf: 'flex-start', backgroundColor: theme.colors.surface2, borderBottomLeftRadius: 5 },
-  message: { color: 'white', lineHeight: 19 },
-  messageTime: { color: 'rgba(255,255,255,.6)', fontSize: 9, marginTop: 4, textAlign: 'right' },
-  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: 9, paddingHorizontal: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: theme.colors.border, backgroundColor: theme.colors.background },
-  input: { flex: 1, maxHeight: 120, minHeight: 46, backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 23, color: 'white', paddingHorizontal: 16, paddingVertical: 12 },
-  send: { width: 46, height: 46, borderRadius: 23, backgroundColor: theme.colors.accent, alignItems: 'center', justifyContent: 'center' },
-  sendText: { color: 'white', fontSize: 18 },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { color: theme.colors.muted },
+  theirs: { alignSelf: 'flex-start', backgroundColor: theme.colors.surface2, borderWidth: 1, borderColor: theme.colors.border, borderBottomLeftRadius: 5 },
+  message: { color: theme.colors.white, lineHeight: 18, fontSize: 12.5 },
+  messageTime: { color: 'rgba(255,255,255,.58)', fontSize: 8.5, marginTop: 4, textAlign: 'right' },
+  composer: { flexDirection: 'row', alignItems: 'flex-end', gap: 7, paddingHorizontal: 10, paddingTop: 9, borderTopWidth: 1, borderTopColor: theme.colors.border, backgroundColor: '#08090B' },
+  attach: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  input: { flex: 1, maxHeight: 112, minHeight: 42, backgroundColor: theme.colors.surface2, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 21, color: theme.colors.text, paddingHorizontal: 14, paddingVertical: 10, fontSize: 12.5 },
+  send: { width: 42, height: 42, borderRadius: 21, backgroundColor: theme.colors.accent, alignItems: 'center', justifyContent: 'center' },
+  sendDisabled: { opacity: 0.4 },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 },
+  loadingText: { color: theme.colors.muted, textAlign: 'center', lineHeight: 18, marginTop: 7 },
+  emptyIcon: { width: 58, height: 58, borderRadius: 29, borderWidth: 1, borderColor: '#4E1116', backgroundColor: '#170709', alignItems: 'center', justifyContent: 'center' },
+  emptyTitle: { color: theme.colors.text, fontSize: 17, fontWeight: '900', marginTop: 13 },
 });
