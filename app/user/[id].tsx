@@ -81,7 +81,7 @@ export default function UserProfileScreen() {
     Alert.alert('Denunciar usuário', 'Enviar uma denúncia por comportamento inadequado?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Denunciar', style: 'destructive', onPress: async () => {
-        const { error } = await supabase.from('reports').insert({
+        const { error } = await supabase!.from('reports').insert({
           reporter_id: myUserId,
           target_user_id: id,
           reason: 'Denúncia enviada pelo perfil público',
