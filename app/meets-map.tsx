@@ -47,6 +47,7 @@ const DARK_MAP_STYLE = [
 export default function MeetsMapScreen() {
   const { events } = useApp();
   const mapRef = useRef<MapView>(null);
+  const attemptedGeocodes = useRef(new Set<string>());
   const [eventCoordinates, setEventCoordinates] = useState<EventCoordinate[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [userLocation, setUserLocation] = useState<UserCoordinate | null>(null);
@@ -169,6 +170,45 @@ export default function MeetsMapScreen() {
       subscription?.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (!locationAllowed) return;
+
+    let active = true;
+
+    async function geocodeLegacyEvents() {
+      const missing = events
+        .filter((event) => !eventCoordinates.some((coordinate) => coordinate.id === event.id))
+        .filter((event) => !attemptedGeocodes.current.has(event.id))
+        .slice(0, 10);
+
+      for (const event of missing) {
+        attemptedGeocodes.current.add(event.id);
+        try {
+          const address = [event.place, event.city.replace(/•/g, ','), 'Brasil'].filter(Boolean).join(', ');
+          const result = await Location.geocodeAsync(address);
+          if (!active || !result[0]) continue;
+
+          setEventCoordinates((current) => {
+            if (current.some((coordinate) => coordinate.id === event.id)) return current;
+            return [...current, {
+              id: event.id,
+              latitude: result[0].latitude,
+              longitude: result[0].longitude,
+            }];
+          });
+        } catch {
+          // Keep the event in the list even when the device geocoder cannot resolve it.
+        }
+      }
+    }
+
+    void geocodeLegacyEvents();
+
+    return () => {
+      active = false;
+    };
+  }, [locationAllowed, events, eventCoordinates]);
 
   useEffect(() => {
     if (selectedId) return;
