@@ -1,22 +1,25 @@
-# Project Apex
+# StreetClub
 
-Rede social mobile para carros esportivos e performance: **Discover + Garage + Feed + Meets + mensagens + Marketplace**.
+Rede social mobile para cultura automotiva, projetos, garages, meets, mensagens e peças.
 
-## v0.4
+## v0.5 — identidade StreetClub
 
-- mensagens diretas independentes de Garage Match
-- contato com vendedor diretamente pelo Marketplace
-- caixa de entrada com não lidas
-- chat Realtime com contexto de anúncio
-- Garage Match continua existindo, mas não é necessário para conversar
-- safe area inferior corrigida em comentários, chat e barra de abas
-- renderização de mídia migrada para `expo-image`
-- suporte a URL pública ou path do Supabase Storage
-- fallback visual para mídia quebrada
-- troca/adicionamento de fotos em carros já existentes
-- gerenciamento de anúncios: reservado, vendido e excluir
-- links de privacidade/termos no app
-- configuração EAS inicial
+A interface foi refatorada para uma linguagem visual preta e vermelha, premium e underground, mantendo a lógica existente do aplicativo.
+
+Principais superfícies:
+- Início social com posts reais e empty state
+- Explorar carros, peças, usuários e eventos
+- Garage Match preservado
+- botão central de criação
+- Mensagens diretas sem necessidade de match
+- perfil social com garagem, posts, eventos e salvos
+- página completa de cada projeto
+- cadastro e edição de carros
+- Meets e visualização de mapa
+- Marketplace com mensagem para vendedor
+- notificações, menu, configurações e ajuda
+- SafeArea em navegação, comentários e chat
+- ícones consistentes com Ionicons
 
 ## Atualizar
 
@@ -28,7 +31,7 @@ npx expo start -c
 
 ## Banco
 
-Depois das migrations v0.1–v0.3, execute somente:
+Se a migration de mensagens diretas ainda não foi executada no Supabase, rode:
 
 ```text
 supabase/migrations/20260921_apex_direct_messages_media.sql
@@ -36,20 +39,18 @@ supabase/migrations/20260921_apex_direct_messages_media.sql
 
 ## Recuperação de senha
 
-Em Supabase → Authentication → URL Configuration, mantenha:
+O esquema interno continua sendo:
 
 ```text
 projectapex://reset-password
 ```
 
-## Teste de fotos antigas
-
-Abra **Garage → seu carro → Editar carro → Adicionar / trocar fotos**. Escolha até 6 fotos e salve. A primeira passa a ser a capa.
+Mantenha esse endereço nos Redirect URLs do Supabase para não interromper o fluxo já configurado.
 
 ## Build
 
-O arquivo `eas.json` já contém perfis development, preview e production. A associação do projeto à conta Expo ainda precisa ser feita com `eas init`, pois depende da conta do proprietário.
+O projeto possui `eas.json` com perfis development, preview e production. A vinculação final à conta Expo e as credenciais das lojas dependem das contas do proprietário.
 
 ## Pré-lançamento
 
-Veja `docs/RELEASE_CHECKLIST.md`. Política e termos atuais são rascunhos técnicos e precisam de revisão jurídica e URL pública antes de submissão às lojas.
+Consulte `docs/RELEASE_CHECKLIST.md` para os itens operacionais e de loja que ainda dependem de configuração externa.

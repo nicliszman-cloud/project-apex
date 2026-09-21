@@ -1,8 +1,11 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { FormField } from '@/components/FormField';
+import { PrimaryButton } from '@/components/PrimaryButton';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 
@@ -37,27 +40,30 @@ export default function ResetPasswordScreen() {
     const { error } = await supabase.auth.updateUser({ password });
     setSaving(false);
     if (error) return Alert.alert('Não foi possível alterar', error.message);
-    Alert.alert('Senha atualizada');
+    Alert.alert('Senha atualizada', 'Sua nova senha já está pronta para uso.');
     router.replace('/auth');
   }
 
   return (
     <Screen>
       <View style={styles.wrap}>
-        <Text style={styles.title}>Nova senha</Text>
-        <Text style={styles.sub}>{ready ? 'Defina uma nova senha para sua conta.' : 'Validando link de recuperação...'}</Text>
-        <TextInput style={styles.input} placeholder="Nova senha" placeholderTextColor={theme.colors.muted} secureTextEntry value={password} onChangeText={setPassword} editable={ready} />
-        <Pressable style={styles.button} onPress={save} disabled={saving || !ready}><Text style={styles.buttonText}>{saving ? 'Salvando...' : 'Atualizar senha'}</Text></Pressable>
+        <View style={styles.card}>
+          <View style={styles.icon}><Ionicons name="lock-closed-outline" size={28} color={theme.colors.accent} /></View>
+          <Text style={styles.title}>Crie uma nova senha</Text>
+          <Text style={styles.body}>{ready ? 'Escolha uma senha segura para sua conta StreetClub.' : 'Validando seu link de recuperação...'}</Text>
+          <FormField label="Nova senha" placeholder="Mínimo de 8 caracteres" secureTextEntry value={password} onChangeText={setPassword} editable={ready} />
+          <PrimaryButton onPress={() => { void save(); }} disabled={saving || !ready} style={styles.button}>{saving ? 'Salvando...' : 'Atualizar senha'}</PrimaryButton>
+        </View>
       </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, padding: 22, justifyContent: 'center' },
-  title: { color: 'white', fontSize: 29, fontWeight: '900' },
-  sub: { color: theme.colors.muted, marginTop: 7, marginBottom: 18 },
-  input: { backgroundColor: theme.colors.surface, color: 'white', borderWidth: 1, borderColor: theme.colors.border, borderRadius: 14, padding: 14 },
-  button: { backgroundColor: theme.colors.accent, borderRadius: 14, padding: 15, alignItems: 'center', marginTop: 15 },
-  buttonText: { color: 'white', fontWeight: '900' },
+  wrap: { flex: 1, justifyContent: 'center', padding: 16 },
+  card: { padding: 22, borderRadius: theme.radius.xl, borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface },
+  icon: { width: 58, height: 58, borderRadius: 29, backgroundColor: '#170709', borderWidth: 1, borderColor: '#4E1116', alignItems: 'center', justifyContent: 'center' },
+  title: { color: theme.colors.text, fontSize: 22, fontWeight: '900', marginTop: 16 },
+  body: { color: theme.colors.muted, fontSize: 11.5, lineHeight: 18, marginTop: 7 },
+  button: { marginTop: 20 },
 });

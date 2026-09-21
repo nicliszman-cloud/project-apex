@@ -2,7 +2,7 @@
   "expo": {
     "name": "StreetClub",
     "slug": "project-apex",
-    "version": "0.4.0",
+    "version": "0.5.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "projectapex",
@@ -11,8 +11,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "O APEX acessa suas fotos para você publicar seus carros e projetos.",
-          "cameraPermission": "O APEX acessa sua câmera para você fotografar carros e projetos.",
+          "photosPermission": "O StreetClub acessa suas fotos para você publicar carros, projetos, eventos e peças.",
+          "cameraPermission": "O StreetClub acessa sua câmera para você fotografar carros, projetos, eventos e peças.",
           "microphonePermission": false
         }
       ]
@@ -23,11 +23,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.projectapex.app",
-      "buildNumber": "1"
+      "buildNumber": "2"
     },
     "android": {
       "package": "com.projectapex.app",
-      "versionCode": 1
+      "versionCode": 2
     },
     "web": {
       "bundler": "metro"
