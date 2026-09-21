@@ -283,7 +283,7 @@ export function AppProvider({ children }: PropsWithChildren) {
 
     return () => {
       data.subscription.unsubscribe();
-      void supabase.removeChannel(postChannel);
+      void supabase!.removeChannel(postChannel);
     };
   }, [loadRemoteData, isDemo]);
 
