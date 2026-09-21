@@ -3,12 +3,14 @@ import { Car } from '@/types';
 import { theme } from '@/lib/theme';
 
 export function CarCard({ car, onPress }: { car: Car; onPress?: () => void }) {
+  const avatarIsImage = car.ownerAvatar.startsWith('http');
+
   return (
     <Pressable style={styles.card} onPress={onPress}>
       <Image source={{ uri: car.image }} style={styles.image} />
       <View style={styles.overlay} />
       <View style={styles.topRow}>
-        <View style={styles.avatar}><Text style={styles.avatarText}>{car.ownerAvatar}</Text></View>
+        {avatarIsImage ? <Image source={{ uri: car.ownerAvatar }} style={styles.avatarImage} /> : <View style={styles.avatar}><Text style={styles.avatarText}>{car.ownerAvatar}</Text></View>}
         <Text style={styles.owner}>{car.ownerName}</Text>
         <Text style={styles.location}>{car.city} • {car.state}</Text>
       </View>
@@ -27,6 +29,7 @@ const styles = StyleSheet.create({
   overlay: { ...StyleSheet.absoluteFillObject as any, backgroundColor: 'rgba(0,0,0,0.18)' },
   topRow: { position: 'absolute', left: 18, right: 18, top: 18, flexDirection: 'row', alignItems: 'center' },
   avatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: theme.colors.accent, alignItems: 'center', justifyContent: 'center' },
+  avatarImage: { width: 34, height: 34, borderRadius: 17 },
   avatarText: { color: 'white', fontWeight: '900' },
   owner: { color: 'white', fontWeight: '800', marginLeft: 9 },
   location: { marginLeft: 'auto', color: 'white', fontSize: 12, backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 99 },

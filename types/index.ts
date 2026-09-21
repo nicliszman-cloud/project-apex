@@ -27,22 +27,28 @@ export type Car = {
   state: string;
   category: CarCategory;
   image: string;
+  images?: string[];
   modifications: string[];
   tags: string[];
 };
 
 export type FeedPost = {
   id: string;
+  authorId?: string;
   author: string;
+  authorAvatar?: string | null;
   carName: string;
+  carId?: string | null;
   image: string;
   caption: string;
   likes: number;
   liked?: boolean;
+  createdAt?: string;
 };
 
 export type CarEvent = {
   id: string;
+  organizerId?: string;
   title: string;
   date: string;
   place: string;
@@ -51,4 +57,16 @@ export type CarEvent = {
   attendees: number;
   image: string;
   joined?: boolean;
+  description?: string | null;
+  startsAt?: string;
+};
+
+export type MatchSummary = {
+  id: string;
+  partnerId: string;
+  partnerName: string;
+  partnerAvatar?: string | null;
+  partnerCarName: string;
+  partnerCarImage?: string | null;
+  createdAt: string;
 };

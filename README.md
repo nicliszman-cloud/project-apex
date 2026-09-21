@@ -1,42 +1,67 @@
 # Project Apex
 
-MVP de uma rede social para carros esportivos e performance: **Discover + Garage + Feed + Meets + Chat**.
+Rede social mobile para carros esportivos e performance: **Discover + Garage + Feed + Meets + Garage Match + Chat**.
 
-## O que já funciona nesta entrega
-- interface mobile em React Native/Expo
-- modo demo sem backend
-- swipe de carros no Discover
-- Garage Match simulado (o BMW M3 da demo gera match)
-- feed com curtidas
-- eventos com confirmação de presença
-- garagem + ficha técnica de carro
-- formulário para adicionar carro localmente
-- chat demo
-- autenticação pronta para Supabase
-- schema SQL com RLS para o backend inicial
+## Estado atual — v0.2
+
+- autenticação real com Supabase
+- perfil persistente e foto de perfil
+- garagem real
+- cadastro técnico de carro
+- até 6 fotos por carro via Supabase Storage
+- galeria no perfil do carro
+- feed real com criação de posts e curtidas
+- criação de eventos e confirmação de presença
+- swipe real: curtir, passar e salvar
+- Garage Match quando a curtida é mútua
+- lista de matches
+- chat persistente com Supabase Realtime
+- modo demo separado da conta real
+- Row Level Security no banco e políticas de Storage
 
 ## Stack
-- Expo SDK 57
-- React Native 0.86
+
+- Expo SDK 57 / React Native 0.86
 - Expo Router
 - TypeScript
-- Supabase (Auth/Postgres/Storage/Realtime na evolução)
+- Expo Image Picker
+- Supabase Auth, Postgres, Storage e Realtime
 
-## Rodar no computador
-1. Instale Node.js LTS e o Expo Go no celular.
-2. Dentro desta pasta, rode `npm install`.
-3. Rode `npx expo start`.
-4. Faça login no Expo Go quando solicitado e escaneie o QR code.
-5. Na tela inicial do app, toque em **Entrar no modo demo**.
+## Atualizar e rodar
 
-## Ligar o Supabase
-1. Crie um projeto em https://supabase.com.
-2. No SQL Editor, execute `supabase/schema.sql`.
-3. Copie `.env.example` para `.env`.
-4. Preencha `EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
-5. Reinicie `npx expo start`.
+```bash
+git pull origin main
+npm install
+npx expo start
+```
 
-> As credenciais públicas do cliente podem ficar no app, mas a segurança real deve ser garantida por RLS. Nunca coloque service-role key no aplicativo.
+## Banco de dados
 
-## Próximo passo de engenharia
-Substituir o estado demo em `context/AppContext.tsx` por queries/mutations Supabase e adicionar upload de imagens via Storage.
+A base inicial está em:
+
+```text
+supabase/schema.sql
+```
+
+A evolução social/Storage da v0.2 está em:
+
+```text
+supabase/migrations/20260921_apex_social.sql
+```
+
+Em um projeto que já recebeu o `schema.sql`, execute somente a migration acima no **Supabase SQL Editor** antes de abrir a v0.2.
+
+## Variáveis locais
+
+Crie `.env` a partir de `.env.example`:
+
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://SEU-PROJETO.supabase.co
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=SUA_PUBLISHABLE_KEY
+```
+
+Nunca coloque uma service-role key no aplicativo.
+
+## Próximas etapas para produção
+
+Antes de publicar nas lojas ainda faltam itens de produto/operação, como recuperação de senha, notificações push, comentários, filtros avançados, exclusão de conta/dados, moderação operacional, termos, política de privacidade, testes E2E e builds de produção.

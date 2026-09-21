@@ -1,39 +1,45 @@
 # Project Apex — Roadmap
 
-## v0.1 — protótipo funcional
-- Login/cadastro com fallback demo
-- Discover com swipe e Garage Match simulado
-- Feed com curtidas
-- Garagem e ficha técnica do carro
-- Cadastro local de carro
-- Meets com confirmação de presença
-- Chat demo
-- Schema inicial Supabase + RLS
+## v0.1 — protótipo
+- UI e navegação
+- modo demo
+- autenticação preparada
+- schema inicial
 
-## v0.2 — backend real
-- Persistir carros, swipes, matches e mensagens no Supabase
-- Storage para fotos
-- Realtime no chat
-- Sessão e onboarding completos
-- Busca/filtros por categoria, marca, distância e potência
+## v0.2 — social backend real
+- Auth e perfis persistentes
+- avatar via Storage
+- garagem persistente
+- ficha técnica completa
+- até 6 fotos por carro
+- feed e likes reais
+- eventos e presença reais
+- swipe persistente
+- Garage Match mútuo
+- lista de matches
+- chat persistente + Realtime
 
-## v0.3 — comunidade
-- Seguir usuários/carros
-- Comentários
-- Build log e peças instaladas
-- Comunidades/clubes
-- Denúncia, bloqueio e painel de moderação
+## Próxima versão
+- comentários em posts
+- seguir pessoas e carros
+- filtros de Discover por marca/categoria/distância
+- edição/exclusão de carros, posts e eventos
+- denúncias/bloqueios na interface
+- recuperação de senha
+- notificações push
 
-## v0.4 — marketplace
-- Vendo / troco / procuro
-- Compatibilidade de peças
-- Favoritos e chat de negociação
-- Oficinas e marcas verificadas
+## Marketplace
+- vendo / troco / procuro
+- compatibilidade de peças
+- favoritos e chat de negociação
+- oficinas e marcas verificadas
 
-## v1.0 — lançamento
-- Privacidade e LGPD
-- Termos e política de conteúdo
-- Analytics/crash reporting
-- Testes E2E
-- Builds de produção Android/iOS
-- Revisão de App Store e Google Play
+## Preparação de lançamento
+- política de privacidade e LGPD
+- termos e regras da comunidade
+- exclusão de conta e exportação de dados
+- painel/processo de moderação
+- analytics/crash reporting
+- testes E2E
+- ícones/splash definitivos
+- builds Android/iOS e revisão das lojas

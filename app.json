@@ -2,11 +2,21 @@
   "expo": {
     "name": "Project Apex",
     "slug": "project-apex",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "projectapex",
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O APEX acessa suas fotos para você publicar seus carros e projetos.",
+          "cameraPermission": "O APEX acessa sua câmera para você fotografar carros e projetos.",
+          "microphonePermission": false
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true
     },
