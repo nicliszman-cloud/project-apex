@@ -1,5 +1,5 @@
 import { PropsWithChildren } from 'react';
-import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
+import { Pressable, StyleProp, StyleSheet, Text, ViewStyle } from 'react-native';
 import { theme } from '@/lib/theme';
 
 export function PrimaryButton({
@@ -7,7 +7,7 @@ export function PrimaryButton({
   onPress,
   disabled = false,
   style,
-}: PropsWithChildren<{ onPress?: () => void; disabled?: boolean; style?: ViewStyle }>) {
+}: PropsWithChildren<{ onPress?: () => void; disabled?: boolean; style?: StyleProp<ViewStyle> }>) {
   return (
     <Pressable
       onPress={onPress}

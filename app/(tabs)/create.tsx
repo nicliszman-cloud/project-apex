@@ -1,264 +1,191 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { AppImage } from '@/components/AppImage';
+import { PrimaryButton } from '@/components/PrimaryButton';
 import { useApp } from '@/context/AppContext';
 import { LocalImage, pickImages } from '@/lib/media';
 import { theme } from '@/lib/theme';
 import { CarCategory } from '@/types';
 
-type Mode = 'car' | 'post' | 'event';
-const categories: CarCategory[] = ['JDM', 'Euro', 'Muscle', 'Supercar', 'Hot Hatch', 'Track'];
-const drivetrains = ['RWD', 'AWD', 'FWD'];
+type Mode='hub'|'car'|'post'|'event';
+const categories:CarCategory[]=['JDM','Euro','Muscle','Supercar','Hot Hatch','Track'];
+const drivetrains=['RWD','AWD','FWD'];
+const fuels=['Gasolina','Etanol','Flex','Diesel','Elétrico','Híbrido'];
 
-export default function CreateScreen() {
-  const { addCar, createPost, createEvent, profile, cars, myUserId, isDemo } = useApp();
-  const [mode, setMode] = useState<Mode>('car');
-  const [saving, setSaving] = useState(false);
+export default function CreateScreen(){
+  const {addCar,createPost,createEvent,profile,cars,myUserId}=useApp();
+  const [mode,setMode]=useState<Mode>('hub');
+  const [saving,setSaving]=useState(false);
 
-  const [make, setMake] = useState('');
-  const [model, setModel] = useState('');
-  const [year, setYear] = useState('');
-  const [engine, setEngine] = useState('');
-  const [transmission, setTransmission] = useState('');
-  const [drivetrain, setDrivetrain] = useState('RWD');
-  const [stockHp, setStockHp] = useState('');
-  const [currentHp, setCurrentHp] = useState('');
-  const [category, setCategory] = useState<CarCategory>('JDM');
-  const [mods, setMods] = useState('');
-  const [carImages, setCarImages] = useState<LocalImage[]>([]);
+  const [make,setMake]=useState('');
+  const [model,setModel]=useState('');
+  const [version,setVersion]=useState('');
+  const [year,setYear]=useState('');
+  const [engine,setEngine]=useState('');
+  const [transmission,setTransmission]=useState('');
+  const [drivetrain,setDrivetrain]=useState('RWD');
+  const [fuel,setFuel]=useState('Gasolina');
+  const [stockHp,setStockHp]=useState('');
+  const [currentHp,setCurrentHp]=useState('');
+  const [category,setCategory]=useState<CarCategory>('JDM');
+  const [description,setDescription]=useState('');
+  const [mods,setMods]=useState('');
+  const [carImages,setCarImages]=useState<LocalImage[]>([]);
 
-  const [postCaption, setPostCaption] = useState('');
-  const [postImage, setPostImage] = useState<LocalImage | null>(null);
-  const myCars = useMemo(() => cars.filter((car) => car.ownerId === myUserId), [cars, myUserId]);
-  const [postCarId, setPostCarId] = useState<string | null>(null);
+  const [postCaption,setPostCaption]=useState('');
+  const [postImage,setPostImage]=useState<LocalImage|null>(null);
+  const [postCarId,setPostCarId]=useState<string|null>(null);
+  const myCars=useMemo(()=>cars.filter((car)=>car.ownerId===myUserId),[cars,myUserId]);
 
-  const [eventTitle, setEventTitle] = useState('');
-  const [eventDescription, setEventDescription] = useState('');
-  const [eventCategory, setEventCategory] = useState('Meet');
-  const [eventVenue, setEventVenue] = useState('');
-  const [eventCity, setEventCity] = useState(profile?.city || '');
-  const [eventState, setEventState] = useState(profile?.state || '');
-  const [eventStarts, setEventStarts] = useState('');
-  const [eventImage, setEventImage] = useState<LocalImage | null>(null);
+  const [eventTitle,setEventTitle]=useState('');
+  const [eventDescription,setEventDescription]=useState('');
+  const [eventCategory,setEventCategory]=useState('Meet');
+  const [eventVenue,setEventVenue]=useState('');
+  const [eventCity,setEventCity]=useState(profile?.city||'');
+  const [eventState,setEventState]=useState(profile?.state||'');
+  const [eventStarts,setEventStarts]=useState('');
+  const [eventImage,setEventImage]=useState<LocalImage|null>(null);
 
-  async function chooseCarImages() {
-    try {
-      const selected = await pickImages(true);
-      if (selected.length) setCarImages(selected);
-    } catch (error: any) {
-      Alert.alert('Fotos', error?.message ?? 'Não foi possível abrir a galeria.');
-    }
+  async function chooseImages(multiple:boolean){
+    try{return await pickImages(multiple);}catch(error:any){Alert.alert('Fotos',error?.message ?? 'Não foi possível abrir a galeria.');return []}
   }
 
-  async function chooseSingle(setter: (value: LocalImage) => void) {
-    try {
-      const selected = await pickImages(false);
-      if (selected[0]) setter(selected[0]);
-    } catch (error: any) {
-      Alert.alert('Foto', error?.message ?? 'Não foi possível abrir a galeria.');
-    }
-  }
-
-  async function saveCar() {
-    if (!make.trim() || !model.trim() || !year.trim()) {
-      return Alert.alert('Falta pouco', 'Preencha marca, modelo e ano.');
-    }
-    const parsedYear = Number(year);
-    if (!Number.isFinite(parsedYear) || parsedYear < 1886 || parsedYear > new Date().getFullYear() + 1) {
-      return Alert.alert('Ano inválido', 'Confira o ano do carro.');
-    }
-
+  async function saveCar(){
+    if(!make.trim()||!model.trim()||!year.trim()) return Alert.alert('Faltam dados','Preencha marca, modelo e ano.');
+    const parsedYear=Number(year);
+    if(!Number.isFinite(parsedYear)||parsedYear<1886||parsedYear>new Date().getFullYear()+1) return Alert.alert('Ano inválido','Confira o ano do carro.');
     setSaving(true);
-    try {
+    try{
       await addCar({
-        make: make.trim(),
-        model: model.trim(),
-        year: parsedYear,
-        engine: engine.trim() || 'Não informado',
-        transmission: transmission.trim() || 'Não informado',
-        drivetrain,
-        stockHp: Number(stockHp || 0),
-        currentHp: Number(currentHp || stockHp || 0),
-        city: profile?.city || 'Não informado',
-        state: profile?.state || 'BR',
-        category,
-        image: carImages[0]?.uri || '',
-        modifications: mods.split('\n').map((item) => item.trim()).filter(Boolean),
-        tags: [category, 'Build'],
-      }, carImages);
-      Alert.alert('Carro adicionado', isDemo ? 'Salvo no modo demo.' : 'Carro e fotos salvos no Supabase.');
+        make:make.trim(),model:model.trim(),version:version.trim()||null,year:parsedYear,engine:engine.trim()||'Não informado',transmission:transmission.trim()||'Não informado',drivetrain,
+        fuel:fuel||null,description:description.trim()||null,stockHp:Number(stockHp||0),currentHp:Number(currentHp||stockHp||0),
+        city:profile?.city||'Não informado',state:profile?.state||'BR',category,image:carImages[0]?.uri||'',
+        modifications:mods.split('\n').map((item)=>item.trim()).filter(Boolean),tags:[category,'Build'],
+      },carImages);
       router.replace('/(tabs)/garage');
-    } catch (error: any) {
-      Alert.alert('Não foi possível salvar', error?.message ?? 'Tente novamente.');
-    } finally {
-      setSaving(false);
-    }
+    }catch(error:any){Alert.alert('Cadastrar carro',error?.message ?? 'Não foi possível salvar.')}finally{setSaving(false)}
   }
 
-  async function savePost() {
-    if (!postImage) return Alert.alert('Escolha uma foto', 'O post precisa de uma imagem.');
-    if (!postCaption.trim()) return Alert.alert('Escreva uma legenda', 'Conte algo sobre o carro ou projeto.');
-
+  async function savePost(){
+    if(!postImage) return Alert.alert('Escolha uma foto','A publicação precisa de uma imagem.');
+    if(!postCaption.trim()) return Alert.alert('Legenda','Escreva uma legenda.');
     setSaving(true);
-    try {
-      await createPost({ caption: postCaption.trim(), carId: postCarId, image: postImage });
-      Alert.alert('Publicado', 'Seu post já está no feed.');
-      router.replace('/(tabs)/feed');
-    } catch (error: any) {
-      Alert.alert('Não foi possível publicar', error?.message ?? 'Tente novamente.');
-    } finally {
-      setSaving(false);
-    }
+    try{await createPost({caption:postCaption.trim(),carId:postCarId,image:postImage});router.replace('/(tabs)/feed');}
+    catch(error:any){Alert.alert('Publicar',error?.message ?? 'Não foi possível publicar.')}finally{setSaving(false)}
   }
 
-  async function saveEvent() {
-    const parsed = new Date(eventStarts.replace(' ', 'T'));
-    if (!eventTitle.trim() || !eventVenue.trim() || !eventCity.trim() || !eventState.trim()) {
-      return Alert.alert('Faltam informações', 'Preencha título, local, cidade e UF.');
-    }
-    if (!eventStarts.trim() || Number.isNaN(parsed.getTime())) {
-      return Alert.alert('Data inválida', 'Use o formato 2026-10-04 09:00.');
-    }
-
+  async function saveEvent(){
+    const parsed=new Date(eventStarts.replace(' ','T'));
+    if(!eventTitle.trim()||!eventVenue.trim()||!eventCity.trim()||!eventState.trim()) return Alert.alert('Faltam informações','Preencha título, local, cidade e UF.');
+    if(!eventStarts.trim()||Number.isNaN(parsed.getTime())) return Alert.alert('Data inválida','Use o formato 2026-10-04 19:00.');
     setSaving(true);
-    try {
-      await createEvent({
-        title: eventTitle.trim(),
-        description: eventDescription.trim(),
-        category: eventCategory.trim() || 'Meet',
-        venueName: eventVenue.trim(),
-        city: eventCity.trim(),
-        state: eventState.trim().toUpperCase(),
-        startsAt: parsed.toISOString(),
-        image: eventImage,
-      });
-      Alert.alert('Evento criado', 'Ele já aparece em Meets e você foi marcado como participante.');
-      router.replace('/(tabs)/meets');
-    } catch (error: any) {
-      Alert.alert('Não foi possível criar', error?.message ?? 'Tente novamente.');
-    } finally {
-      setSaving(false);
-    }
+    try{await createEvent({title:eventTitle.trim(),description:eventDescription.trim(),category:eventCategory.trim()||'Meet',venueName:eventVenue.trim(),city:eventCity.trim(),state:eventState.trim().toUpperCase(),startsAt:parsed.toISOString(),image:eventImage});router.replace('/(tabs)/meets');}
+    catch(error:any){Alert.alert('Criar evento',error?.message ?? 'Não foi possível criar.')}finally{setSaving(false)}
   }
+
+  if(mode==='hub') return <CreateHub onSelect={setMode}/>;
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <Text style={styles.title}>Criar</Text>
-        <Text style={styles.sub}>{isDemo ? 'Modo demo ativo.' : 'Tudo aqui será salvo na sua conta real.'}</Text>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <View style={styles.header}><Pressable style={styles.back} onPress={()=>setMode('hub')}><Ionicons name="chevron-back" size={22} color={theme.colors.text}/></Pressable><View><Text style={styles.title}>{mode==='car'?'Cadastrar carro':mode==='post'?'Criar post':'Criar evento'}</Text><Text style={styles.sub}>StreetClub</Text></View></View>
 
-        <View style={styles.switcher}>
-          <ModeButton active={mode === 'car'} text="🏎️ Carro" onPress={() => setMode('car')} />
-          <ModeButton active={mode === 'post'} text="📸 Post" onPress={() => setMode('post')} />
-          <ModeButton active={mode === 'event'} text="📍 Evento" onPress={() => setMode('event')} />
-        </View>
-
-        {mode === 'car' && <>
-          <Field label="Marca" value={make} onChangeText={setMake} placeholder="Toyota" />
-          <Field label="Modelo" value={model} onChangeText={setModel} placeholder="Supra MK4" />
-          <Field label="Motor" value={engine} onChangeText={setEngine} placeholder="3.0 2JZ-GTE biturbo" />
-          <Field label="Câmbio" value={transmission} onChangeText={setTransmission} placeholder="Manual 6 marchas" />
-          <View style={styles.row}>
-            <View style={{ flex: 1 }}><Field label="Ano" value={year} onChangeText={setYear} placeholder="2000" keyboardType="number-pad" /></View>
-            <View style={{ flex: 1 }}><Field label="Potência original" value={stockHp} onChangeText={setStockHp} placeholder="280" keyboardType="number-pad" /></View>
-          </View>
-          <Field label="Potência atual (cv)" value={currentHp} onChangeText={setCurrentHp} placeholder="780" keyboardType="number-pad" />
-          <Text style={styles.label}>Tração</Text>
-          <View style={styles.chips}>{drivetrains.map((item) => <Chip key={item} text={item} active={drivetrain === item} onPress={() => setDrivetrain(item)} />)}</View>
-          <Text style={styles.label}>Categoria</Text>
-          <View style={styles.chips}>{categories.map((item) => <Chip key={item} text={item} active={category === item} onPress={() => setCategory(item)} />)}</View>
-          <Field label="Modificações" value={mods} onChangeText={setMods} placeholder={'Uma por linha\nStage 2\nSuspensão coilover\nRodas 18”'} multiline />
-
-          <Text style={styles.label}>Fotos do carro</Text>
-          <Pressable style={styles.photo} onPress={chooseCarImages}>
-            <Text style={styles.photoIcon}>＋</Text>
-            <Text style={styles.photoText}>{carImages.length ? carImages.length + ' foto(s) selecionada(s)' : 'Escolher da galeria'}</Text>
-            <Text style={styles.photoSub}>Até 6 fotos. A primeira será a capa.</Text>
+        {mode==='car'&&<>
+          <Text style={styles.label}>Fotos</Text>
+          <Pressable style={styles.photoPicker} onPress={async()=>{const list=await chooseImages(true);if(list.length)setCarImages(list)}}>
+            {carImages.length?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>{carImages.map((image,index)=><AppImage key={image.uri+index} uri={image.uri} style={styles.preview}/>)}</ScrollView>:<View style={styles.photoEmpty}><Ionicons name="images-outline" size={30} color={theme.colors.accent}/><Text style={styles.photoTitle}>Adicionar fotos</Text><Text style={styles.photoSub}>Até 6 imagens · a primeira será a capa</Text></View>}
           </Pressable>
-          {!!carImages.length && <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.previewRow}>{carImages.map((image, index) => <AppImage key={image.uri + '-' + index} uri={image.uri} style={styles.preview} />)}</ScrollView>}
-
-          <Pressable style={styles.save} onPress={saveCar} disabled={saving}><Text style={styles.saveText}>{saving ? 'Salvando...' : 'Adicionar à garagem'}</Text></Pressable>
+          <Field label="Marca" value={make} onChangeText={setMake} placeholder="Nissan"/>
+          <Field label="Modelo" value={model} onChangeText={setModel} placeholder="Silvia S15"/>
+          <Field label="Versão" value={version} onChangeText={setVersion} placeholder="Spec-R"/>
+          <View style={styles.row}><View style={{flex:1}}><Field label="Ano" value={year} onChangeText={setYear} keyboardType="number-pad" placeholder="2002"/></View><View style={{flex:1}}><Field label="Potência (cv)" value={currentHp} onChangeText={setCurrentHp} keyboardType="number-pad" placeholder="250"/></View></View>
+          <Field label="Motor" value={engine} onChangeText={setEngine} placeholder="2.0 Turbo (SR20DET)"/>
+          <Field label="Câmbio" value={transmission} onChangeText={setTransmission} placeholder="Manual 6 marchas"/>
+          <Text style={styles.label}>Tração</Text><View style={styles.chips}>{drivetrains.map((item)=><Chip key={item} text={item} active={drivetrain===item} onPress={()=>setDrivetrain(item)}/>)}</View>
+          <Text style={styles.label}>Combustível</Text><View style={styles.chips}>{fuels.map((item)=><Chip key={item} text={item} active={fuel===item} onPress={()=>setFuel(item)}/>)}</View>
+          <Text style={styles.label}>Categoria</Text><View style={styles.chips}>{categories.map((item)=><Chip key={item} text={item} active={category===item} onPress={()=>setCategory(item)}/>)}</View>
+          <Field label="Potência original (cv)" value={stockHp} onChangeText={setStockHp} keyboardType="number-pad" placeholder="250"/>
+          <Field label="Descrição" value={description} onChangeText={setDescription} multiline placeholder="Conte a história e a proposta do projeto..."/>
+          <Field label="Modificações" value={mods} onChangeText={setMods} multiline placeholder={'Uma por linha\nTurbo GTX\nCoilovers\nRodas 18”'}/>
+          <PrimaryButton onPress={()=>{void saveCar();}} disabled={saving} style={styles.save}>{saving?'Salvando...':'Cadastrar carro'}</PrimaryButton>
         </>}
 
-        {mode === 'post' && <>
+        {mode==='post'&&<>
           <Text style={styles.label}>Foto</Text>
-          <Pressable style={[styles.photo, postImage && styles.photoWithImage]} onPress={() => chooseSingle(setPostImage)}>
-            {postImage ? <AppImage uri={postImage.uri} style={styles.postPreview} /> : <>
-              <Text style={styles.photoIcon}>＋</Text><Text style={styles.photoText}>Escolher foto</Text>
-            </>}
+          <Pressable style={styles.postPhoto} onPress={async()=>{const list=await chooseImages(false);if(list[0])setPostImage(list[0])}}>
+            {postImage?<AppImage uri={postImage.uri} style={StyleSheet.absoluteFill}/>:<View style={styles.photoEmpty}><Ionicons name="camera-outline" size={32} color={theme.colors.accent}/><Text style={styles.photoTitle}>Selecionar foto</Text></View>}
           </Pressable>
-          <Field label="Legenda" value={postCaption} onChangeText={setPostCaption} placeholder="Conte sobre o projeto..." multiline />
-          <Text style={styles.label}>Relacionar a um carro (opcional)</Text>
-          <View style={styles.chips}>
-            <Chip text="Nenhum" active={!postCarId} onPress={() => setPostCarId(null)} />
-            {myCars.map((car) => <Chip key={car.id} text={car.make + ' ' + car.model} active={postCarId === car.id} onPress={() => setPostCarId(car.id)} />)}
-          </View>
-          <Pressable style={styles.save} onPress={savePost} disabled={saving}><Text style={styles.saveText}>{saving ? 'Publicando...' : 'Publicar no feed'}</Text></Pressable>
+          <Field label="Legenda" value={postCaption} onChangeText={setPostCaption} multiline placeholder="Conte sobre o projeto, a noite, a build..."/>
+          <Text style={styles.label}>Carro relacionado</Text><View style={styles.chips}><Chip text="Nenhum" active={!postCarId} onPress={()=>setPostCarId(null)}/>{myCars.map((car)=><Chip key={car.id} text={car.make+' '+car.model} active={postCarId===car.id} onPress={()=>setPostCarId(car.id)}/>)}</View>
+          <View style={styles.infoRow}><Ionicons name="location-outline" size={17} color={theme.colors.muted}/><Text style={styles.infoText}>{[profile?.city,profile?.state].filter(Boolean).join(', ')||'Localização do perfil'}</Text></View>
+          <View style={styles.infoRow}><Ionicons name="chatbubble-outline" size={17} color={theme.colors.muted}/><Text style={styles.infoText}>Comentários ativados</Text></View>
+          <PrimaryButton onPress={()=>{void savePost();}} disabled={saving} style={styles.save}>{saving?'Publicando...':'Publicar'}</PrimaryButton>
         </>}
 
-        {mode === 'event' && <>
-          <Field label="Título" value={eventTitle} onChangeText={setEventTitle} placeholder="JDM Night Meet" />
-          <Field label="Categoria" value={eventCategory} onChangeText={setEventCategory} placeholder="Meet, Track Day, Exposição..." />
-          <Field label="Descrição" value={eventDescription} onChangeText={setEventDescription} placeholder="Informações, regras e detalhes do encontro..." multiline />
-          <Field label="Local" value={eventVenue} onChangeText={setEventVenue} placeholder="Nome do local" />
-          <View style={styles.row}>
-            <View style={{ flex: 1 }}><Field label="Cidade" value={eventCity} onChangeText={setEventCity} placeholder="Cascavel" /></View>
-            <View style={{ width: 90 }}><Field label="UF" value={eventState} onChangeText={setEventState} placeholder="PR" /></View>
-          </View>
-          <Field label="Data e horário" value={eventStarts} onChangeText={setEventStarts} placeholder="2026-10-04 09:00" />
-          <Text style={styles.label}>Capa do evento</Text>
-          <Pressable style={[styles.photo, eventImage && styles.photoWithImage]} onPress={() => chooseSingle(setEventImage)}>
-            {eventImage ? <AppImage uri={eventImage.uri} style={styles.postPreview} /> : <>
-              <Text style={styles.photoIcon}>＋</Text><Text style={styles.photoText}>Escolher foto</Text>
-            </>}
+        {mode==='event'&&<>
+          <Text style={styles.label}>Capa</Text>
+          <Pressable style={styles.postPhoto} onPress={async()=>{const list=await chooseImages(false);if(list[0])setEventImage(list[0])}}>
+            {eventImage?<AppImage uri={eventImage.uri} style={StyleSheet.absoluteFill}/>:<View style={styles.photoEmpty}><Ionicons name="image-outline" size={32} color={theme.colors.accent}/><Text style={styles.photoTitle}>Selecionar capa</Text></View>}
           </Pressable>
-          <Pressable style={styles.save} onPress={saveEvent} disabled={saving}><Text style={styles.saveText}>{saving ? 'Criando...' : 'Criar evento'}</Text></Pressable>
+          <Field label="Nome do evento" value={eventTitle} onChangeText={setEventTitle} placeholder="Street Night Meet"/>
+          <Field label="Categoria" value={eventCategory} onChangeText={setEventCategory} placeholder="Meet, Track, JDM, Euro..."/>
+          <Field label="Descrição" value={eventDescription} onChangeText={setEventDescription} multiline placeholder="Regras, horários e detalhes..."/>
+          <Field label="Local" value={eventVenue} onChangeText={setEventVenue} placeholder="Nome do local"/>
+          <View style={styles.row}><View style={{flex:1}}><Field label="Cidade" value={eventCity} onChangeText={setEventCity} placeholder="Cascavel"/></View><View style={{width:82}}><Field label="UF" value={eventState} onChangeText={setEventState} placeholder="PR"/></View></View>
+          <Field label="Data e horário" value={eventStarts} onChangeText={setEventStarts} placeholder="2026-10-04 19:00"/>
+          <PrimaryButton onPress={()=>{void saveEvent();}} disabled={saving} style={styles.save}>{saving?'Criando...':'Criar evento'}</PrimaryButton>
         </>}
       </ScrollView>
     </Screen>
   );
 }
 
-function ModeButton({ active, text, onPress }: { active: boolean; text: string; onPress: () => void }) {
-  return <Pressable onPress={onPress} style={[styles.mode, active && styles.modeOn]}><Text style={[styles.modeText, active && styles.modeTextOn]}>{text}</Text></Pressable>;
+function CreateHub({onSelect}:{onSelect:(mode:Mode)=>void}){
+  const options=[
+    {mode:'post' as Mode,icon:'camera-outline' as const,title:'Publicar foto',sub:'Compartilhe seu projeto com a comunidade'},
+    {mode:'car' as Mode,icon:'car-sport-outline' as const,title:'Cadastrar carro',sub:'Adicione um projeto à sua garagem'},
+    {mode:'event' as Mode,icon:'calendar-outline' as const,title:'Criar evento',sub:'Organize um meet, track day ou encontro'},
+  ];
+  return <Screen><View style={styles.hubHeader}><Text style={styles.hubTitle}>Criar</Text><Text style={styles.hubSub}>O que vai para a rua hoje?</Text></View><View style={styles.hubList}>{options.map((item)=><Pressable key={item.mode} style={styles.hubCard} onPress={()=>onSelect(item.mode)}><View style={styles.hubIcon}><Ionicons name={item.icon} size={24} color={theme.colors.accent}/></View><View style={{flex:1}}><Text style={styles.hubCardTitle}>{item.title}</Text><Text style={styles.hubCardSub}>{item.sub}</Text></View><Ionicons name="chevron-forward" size={19} color={theme.colors.muted2}/></Pressable>)}<Pressable style={styles.hubCard} onPress={()=>router.push('/marketplace-create')}><View style={styles.hubIcon}><Ionicons name="construct-outline" size={24} color={theme.colors.accent}/></View><View style={{flex:1}}><Text style={styles.hubCardTitle}>Anunciar peça</Text><Text style={styles.hubCardSub}>Venda, troque ou procure peças</Text></View><Ionicons name="chevron-forward" size={19} color={theme.colors.muted2}/></Pressable></View></Screen>
 }
 
-function Chip({ active, text, onPress }: { active: boolean; text: string; onPress: () => void }) {
-  return <Pressable onPress={onPress} style={[styles.chip, active && styles.chipOn]}><Text style={[styles.chipText, active && styles.chipTextOn]}>{text}</Text></Pressable>;
-}
+function Field({label,multiline,...props}:any){return <View><Text style={styles.label}>{label}</Text><TextInput {...props} multiline={multiline} placeholderTextColor={theme.colors.muted2} textAlignVertical={multiline?'top':'center'} style={[styles.input,multiline&&styles.multiline]}/></View>}
+function Chip({active,text,onPress}:{active:boolean;text:string;onPress:()=>void}){return <Pressable onPress={onPress} style={[styles.chip,active&&styles.chipOn]}><Text style={[styles.chipText,active&&styles.chipTextOn]}>{text}</Text></Pressable>}
 
-function Field({ label, multiline, ...props }: any) {
-  return <View><Text style={styles.label}>{label}</Text><TextInput {...props} multiline={multiline} style={[styles.input, multiline && styles.multiline]} placeholderTextColor={theme.colors.muted} textAlignVertical={multiline ? 'top' : 'center'} /></View>;
-}
-
-const styles = StyleSheet.create({
-  content: { padding: 20, paddingBottom: 50 },
-  title: { color: 'white', fontSize: 31, fontWeight: '900' },
-  sub: { color: theme.colors.muted, marginTop: 5 },
-  switcher: { flexDirection: 'row', backgroundColor: theme.colors.surface, borderRadius: 16, borderWidth: 1, borderColor: theme.colors.border, padding: 5, marginTop: 22 },
-  mode: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 11 },
-  modeOn: { backgroundColor: theme.colors.accent },
-  modeText: { color: theme.colors.muted, fontWeight: '800', fontSize: 12 },
-  modeTextOn: { color: 'white' },
-  label: { color: '#D8DADE', fontWeight: '800', fontSize: 12, marginTop: 18, marginBottom: 7 },
-  input: { backgroundColor: theme.colors.surface, color: 'white', borderWidth: 1, borderColor: theme.colors.border, borderRadius: 14, padding: 14 },
-  multiline: { minHeight: 100 },
-  row: { flexDirection: 'row', gap: 12 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { borderWidth: 1, borderColor: theme.colors.border, backgroundColor: theme.colors.surface, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 99 },
-  chipOn: { borderColor: theme.colors.accent, backgroundColor: '#402015' },
-  chipText: { color: theme.colors.muted, fontWeight: '800', fontSize: 12 },
-  chipTextOn: { color: '#FF8A65' },
-  photo: { minHeight: 130, borderWidth: 1, borderStyle: 'dashed', borderColor: '#3A3F49', borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0D0F12', overflow: 'hidden' },
-  photoWithImage: { borderStyle: 'solid' },
-  photoIcon: { color: theme.colors.accent, fontSize: 28 },
-  photoText: { color: 'white', fontWeight: '900', marginTop: 4 },
-  photoSub: { color: theme.colors.muted, fontSize: 10, marginTop: 6 },
-  previewRow: { marginTop: 10 },
-  preview: { width: 86, height: 86, borderRadius: 12, marginRight: 8 },
-  postPreview: { width: '100%', height: 230 },
-  save: { backgroundColor: theme.colors.accent, padding: 16, borderRadius: 15, alignItems: 'center', marginTop: 24 },
-  saveText: { color: 'white', fontWeight: '900', fontSize: 15 },
+const styles=StyleSheet.create({
+  content:{padding:16,paddingBottom:38},
+  header:{flexDirection:'row',alignItems:'center',marginBottom:6},
+  back:{width:40,height:40,borderRadius:20,borderWidth:1,borderColor:theme.colors.border,alignItems:'center',justifyContent:'center',marginRight:12},
+  title:{color:theme.colors.text,fontSize:24,fontWeight:'900'},
+  sub:{color:theme.colors.accent,fontSize:9,fontWeight:'900',letterSpacing:1.4,marginTop:2},
+  label:{color:theme.colors.textSoft,fontSize:11,fontWeight:'800',marginTop:17,marginBottom:7},
+  input:{backgroundColor:theme.colors.surface,borderWidth:1,borderColor:theme.colors.border,borderRadius:theme.radius.md,color:theme.colors.text,paddingHorizontal:13,minHeight:46},
+  multiline:{minHeight:105,paddingTop:12},
+  row:{flexDirection:'row',gap:10},
+  chips:{flexDirection:'row',flexWrap:'wrap',gap:8},
+  chip:{borderWidth:1,borderColor:theme.colors.border,borderRadius:18,paddingHorizontal:12,paddingVertical:8,backgroundColor:theme.colors.surface},
+  chipOn:{borderColor:theme.colors.accent,backgroundColor:'#22080A'},
+  chipText:{color:theme.colors.muted,fontSize:10.5,fontWeight:'800'},
+  chipTextOn:{color:theme.colors.text},
+  photoPicker:{minHeight:128,borderWidth:1,borderStyle:'dashed',borderColor:theme.colors.borderStrong,borderRadius:theme.radius.lg,overflow:'hidden',backgroundColor:theme.colors.surface},
+  photoRow:{padding:8,gap:8},
+  preview:{width:102,height:102,borderRadius:12},
+  photoEmpty:{minHeight:128,alignItems:'center',justifyContent:'center',padding:20},
+  photoTitle:{color:theme.colors.text,fontSize:13,fontWeight:'900',marginTop:8},
+  photoSub:{color:theme.colors.muted,fontSize:9.5,marginTop:4},
+  postPhoto:{height:260,borderWidth:1,borderStyle:'dashed',borderColor:theme.colors.borderStrong,borderRadius:theme.radius.lg,overflow:'hidden',backgroundColor:theme.colors.surface},
+  infoRow:{flexDirection:'row',alignItems:'center',gap:8,minHeight:44,borderBottomWidth:1,borderBottomColor:theme.colors.border},
+  infoText:{color:theme.colors.muted,fontSize:11},
+  save:{marginTop:24},
+  hubHeader:{paddingHorizontal:18,paddingTop:10,paddingBottom:18},
+  hubTitle:{color:theme.colors.text,fontSize:29,fontWeight:'900'},
+  hubSub:{color:theme.colors.muted,fontSize:12,marginTop:4},
+  hubList:{paddingHorizontal:14,gap:10},
+  hubCard:{minHeight:86,borderWidth:1,borderColor:theme.colors.border,borderRadius:theme.radius.lg,backgroundColor:theme.colors.surface,flexDirection:'row',alignItems:'center',padding:14},
+  hubIcon:{width:48,height:48,borderRadius:24,backgroundColor:'#170709',borderWidth:1,borderColor:'#4E1116',alignItems:'center',justifyContent:'center',marginRight:12},
+  hubCardTitle:{color:theme.colors.text,fontSize:14,fontWeight:'900'},
+  hubCardSub:{color:theme.colors.muted,fontSize:10.5,marginTop:4,lineHeight:15},
 });

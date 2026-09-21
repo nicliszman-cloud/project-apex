@@ -17,10 +17,13 @@ export type Car = {
   ownerAvatar: string;
   make: string;
   model: string;
+  version?: string | null;
   year: number;
   engine: string;
   transmission: string;
   drivetrain: string;
+  fuel?: string | null;
+  description?: string | null;
   stockHp: number;
   currentHp: number;
   city: string;
