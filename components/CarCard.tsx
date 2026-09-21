@@ -25,8 +25,8 @@ export function CarCard({ car, onPress }: { car: Car; onPress?: () => void }) {
 
 const styles = StyleSheet.create({
   card: { height: 560, borderRadius: 28, overflow: 'hidden', backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border },
-  image: { ...StyleSheet.absoluteFillObject as any, width: '100%', height: '100%' },
-  overlay: { ...StyleSheet.absoluteFillObject as any, backgroundColor: 'rgba(0,0,0,0.18)' },
+  image: { ...StyleSheet.absoluteFill as any, width: '100%', height: '100%' },
+  overlay: { ...StyleSheet.absoluteFill as any, backgroundColor: 'rgba(0,0,0,0.18)' },
   topRow: { position: 'absolute', left: 18, right: 18, top: 18, flexDirection: 'row', alignItems: 'center' },
   avatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: theme.colors.accent, alignItems: 'center', justifyContent: 'center' },
   avatarImage: { width: 34, height: 34, borderRadius: 17 },
