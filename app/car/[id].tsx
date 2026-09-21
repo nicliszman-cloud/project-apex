@@ -32,7 +32,9 @@ export default function CarProfileScreen(){
   if(!car) return <Screen><View style={styles.center}><Ionicons name="car-sport-outline" size={38} color={theme.colors.muted2}/><Text style={styles.centerText}>Projeto não encontrado.</Text></View></Screen>;
 
   const gallery=car.images?.length?car.images:[car.image];
-  const mine=car.ownerId===myUserId;
+  const ownerId=car.ownerId;
+  const carId=car.id;
+  const mine=ownerId===myUserId;
   const grouped=new Map<string,string[]>();
   for(const group of modGroups) grouped.set(group,[]);
   for(const modification of car.modifications){
@@ -43,7 +45,7 @@ export default function CarProfileScreen(){
   async function messageOwner(){
     if(mine) return;
     try{
-      const conversationId=await openConversation(car.ownerId);
+      const conversationId=await openConversation(ownerId);
       router.push({pathname:'/chat',params:{conversationId}});
     }catch(error:any){
       Alert.alert('Mensagem',error?.message ?? 'Não foi possível abrir a conversa.');
@@ -55,7 +57,7 @@ export default function CarProfileScreen(){
     Alert.alert('Excluir carro','Essa ação remove o projeto e os dados vinculados.',[
       {text:'Cancelar',style:'cancel'},
       {text:'Excluir',style:'destructive',onPress:async()=>{
-        const {error}=await supabase!.from('cars').delete().eq('id',car.id);
+        const {error}=await supabase!.from('cars').delete().eq('id',carId);
         if(error) return Alert.alert('Erro',error.message);
         await refreshRemoteData();
         router.replace('/(tabs)/garage');
