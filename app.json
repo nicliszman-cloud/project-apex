@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Project Apex",
+    "slug": "project-apex",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "scheme": "projectapex",
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.projectapex.app"
+    },
+    "android": {
+      "package": "com.projectapex.app"
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
