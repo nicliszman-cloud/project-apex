@@ -105,6 +105,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         carPhotoResult,
         postResult,
         postLikeResult,
+        commentResult,
         eventResult,
         attendeeResult,
         matchResult,
@@ -115,6 +116,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         supabase.from('car_photos').select('car_id, url, position').order('position', { ascending: true }),
         supabase.from('posts').select('id, author_id, car_id, caption, media_url, created_at').order('created_at', { ascending: false }),
         supabase.from('post_likes').select('post_id, user_id'),
+        supabase.from('comments').select('post_id'),
         supabase.from('events').select('id, organizer_id, title, description, category, city, state, venue_name, starts_at, cover_url, created_at').order('starts_at', { ascending: true }),
         supabase.from('event_attendees').select('event_id, user_id'),
         supabase.from('matches').select('id, user_a, user_b, car_a, car_b, created_at').order('created_at', { ascending: false }),
@@ -123,7 +125,7 @@ export function AppProvider({ children }: PropsWithChildren) {
 
       const error =
         profileResult.error || carResult.error || carPhotoResult.error || postResult.error ||
-        postLikeResult.error || eventResult.error || attendeeResult.error || matchResult.error || swipeResult.error;
+        postLikeResult.error || commentResult.error || eventResult.error || attendeeResult.error || matchResult.error || swipeResult.error;
       if (error) throw error;
 
       const profileRows = profileResult.data ?? [];
@@ -178,6 +180,7 @@ export function AppProvider({ children }: PropsWithChildren) {
 
       const carsById = new Map(mappedCars.map((car) => [car.id, car]));
       const likes = postLikeResult.data ?? [];
+      const commentRows = commentResult.data ?? [];
       setPosts((postResult.data ?? []).map((row: any) => {
         const author: any = profiles.get(row.author_id);
         const car = row.car_id ? carsById.get(row.car_id) : undefined;
@@ -186,12 +189,16 @@ export function AppProvider({ children }: PropsWithChildren) {
           id: row.id,
           authorId: row.author_id,
           author: author?.display_name || author?.username || 'Driver',
+          authorUsername: author?.username || null,
           authorAvatar: author?.avatar_url,
+          authorCity: author?.city || null,
+          authorState: author?.state || null,
           carName: car ? `${car.make} ${car.model}` : 'Projeto',
           carId: row.car_id,
           image: row.media_url,
           caption: row.caption ?? '',
           likes: postLikes.length,
+          comments: commentRows.filter((comment: any) => comment.post_id === row.id).length,
           liked: postLikes.some((like: any) => like.user_id === userId),
           createdAt: row.created_at,
         };

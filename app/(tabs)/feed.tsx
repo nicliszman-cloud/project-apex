@@ -1,95 +1,197 @@
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useMemo, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Screen } from '@/components/Screen';
-import { AppImage } from '@/components/AppImage';
+import { BrandLogo } from '@/components/BrandLogo';
+import { SearchBar } from '@/components/SearchBar';
+import { IconButton } from '@/components/IconButton';
+import { FeedEmptyState } from '@/components/FeedEmptyState';
+import { SocialPostCard } from '@/components/SocialPostCard';
 import { useApp } from '@/context/AppContext';
 import { theme } from '@/lib/theme';
 
-export default function FeedScreen() {
-  const { posts, togglePostLike, isDemo } = useApp();
+const categories = ['Para você', 'JDM', 'Euro', 'Muscle', 'Clássicos'] as const;
+type HomeCategory = typeof categories[number];
 
-  return (
-    <Screen>
-      <View style={styles.header}>
-        <Text style={styles.logo}>APEX</Text>
-        <View style={styles.headerActions}>
-          <Pressable onPress={() => router.push('/notifications')}><Text style={styles.headerIcon}>🔔</Text></Pressable>
-          <Pressable onPress={() => router.push('/inbox')}><Text style={styles.headerIcon}>💬</Text></Pressable>
+export default function FeedScreen() {
+  const { posts, cars, togglePostLike, refreshRemoteData } = useApp();
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<HomeCategory>('Para você');
+  const [savedIds, setSavedIds] = useState<string[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const carsById = useMemo(() => new Map(cars.map((car) => [car.id, car])), [cars]);
+
+  const visiblePosts = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return posts.filter((post) => {
+      const car = post.carId ? carsById.get(post.carId) : undefined;
+      const matchesSearch = !q || [
+        post.author,
+        post.authorUsername,
+        post.caption,
+        post.carName,
+        car?.make,
+        car?.model,
+      ].filter(Boolean).join(' ').toLowerCase().includes(q);
+
+      let matchesCategory = true;
+      if (category === 'JDM' || category === 'Euro' || category === 'Muscle') {
+        matchesCategory = car?.category === category;
+      } else if (category === 'Clássicos') {
+        matchesCategory = Boolean(car && car.year > 0 && car.year <= 1999);
+      }
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [posts, carsById, query, category]);
+
+  async function refresh() {
+    setRefreshing(true);
+    try {
+      await refreshRemoteData();
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  function toggleSaved(postId: string) {
+    setSavedIds((current) => current.includes(postId)
+      ? current.filter((id) => id !== postId)
+      : [...current, postId]);
+  }
+
+  const listHeader = (
+    <View>
+      <View style={styles.topbar}>
+        <BrandLogo size={27} />
+        <View style={styles.topActions}>
+          <IconButton
+            name="notifications-outline"
+            accessibilityLabel="Notificações"
+            onPress={() => router.push('/notifications')}
+          />
         </View>
       </View>
 
-      {posts.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>📸</Text>
-          <Text style={styles.emptyTitle}>Seu feed real está vazio</Text>
-          <Text style={styles.emptyText}>Use o botão ＋ e escolha Post para publicar a primeira foto.</Text>
-          <Pressable style={styles.createButton} onPress={() => router.push('/(tabs)/create')}><Text style={styles.createText}>Criar post</Text></Pressable>
-        </View>
-      ) : (
-        <FlatList
-          data={posts}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <View style={styles.post}>
-              <Pressable style={styles.author} onPress={() => item.authorId && router.push('/user/' + item.authorId)}>
-                <AppImage uri={item.authorAvatar} style={styles.avatar} placeholder={<Text style={styles.avatarText}>{item.author[0]}</Text>} />
-                <View><Text style={styles.authorName}>{item.author}</Text><Text style={styles.carName}>{item.carName}</Text></View>
-                <Text style={styles.more}>•••</Text>
-              </Pressable>
-
-              <Pressable onPress={() => router.push('/post/' + item.id)}>
-                <AppImage uri={item.image} style={styles.image} placeholder={<Text style={styles.photoPlaceholder}>📸</Text>} />
-              </Pressable>
-
-              <View style={styles.postBody}>
-                <View style={styles.actions}>
-                  <Pressable onPress={() => { void togglePostLike(item.id); }}><Text style={[styles.action, item.liked && { color: theme.colors.accent }]}>{item.liked ? '♥' : '♡'}</Text></Pressable>
-                  <Pressable onPress={() => router.push('/post/' + item.id)}><Text style={styles.action}>◯</Text></Pressable>
-                  <Text style={styles.action}>↗</Text>
-                  <Text style={[styles.action, { marginLeft: 'auto' }]}>☆</Text>
-                </View>
-                <Text style={styles.likes}>{item.likes.toLocaleString('pt-BR')} curtidas</Text>
-                <Pressable onPress={() => router.push('/post/' + item.id)}>
-                  <Text style={styles.caption}><Text style={{ fontWeight: '900' }}>{item.author} </Text>{item.caption}</Text>
-                  <Text style={styles.commentsLink}>Ver comentários</Text>
-                </Pressable>
-                {isDemo && <Text style={styles.demo}>conteúdo demo</Text>}
-              </View>
-            </View>
-          )}
+      <View style={styles.searchWrap}>
+        <SearchBar
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Buscar carros, projetos, usuários..."
         />
-      )}
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categories}
+      >
+        {categories.map((item) => {
+          const active = item === category;
+          return (
+            <Pressable key={item} onPress={() => setCategory(item)} style={styles.category}>
+              <View style={[styles.categoryMark, active && styles.categoryMarkActive]}>
+                <Ionicons
+                  name={item === 'Para você' ? 'flash-outline' : 'car-sport-outline'}
+                  size={20}
+                  color={active ? theme.colors.white : theme.colors.muted}
+                />
+              </View>
+              <Text style={[styles.categoryText, active && styles.categoryTextActive]}>{item}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      <View style={styles.sectionRow}>
+        <Text style={styles.sectionTitle}>Na rua agora</Text>
+        <Pressable onPress={() => router.push('/(tabs)/discover')}>
+          <Text style={styles.sectionLink}>Explorar</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  if (posts.length === 0 && !query) {
+    return (
+      <Screen>
+        {listHeader}
+        <FeedEmptyState onCreate={() => router.push('/(tabs)/create')} />
+      </Screen>
+    );
+  }
+
+  return (
+    <Screen>
+      <FlatList
+        data={visiblePosts}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={listHeader}
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { void refresh(); }} tintColor={theme.colors.accent} />}
+        renderItem={({ item }) => (
+          <SocialPostCard
+            post={item}
+            car={item.carId ? carsById.get(item.carId) : undefined}
+            saved={savedIds.includes(item.id)}
+            onToggleLike={() => { void togglePostLike(item.id); }}
+            onToggleSave={() => toggleSaved(item.id)}
+          />
+        )}
+        ListEmptyComponent={
+          <View style={styles.noResults}>
+            <Ionicons name="search-outline" size={32} color={theme.colors.muted2} />
+            <Text style={styles.noResultsTitle}>Nada encontrado</Text>
+            <Text style={styles.noResultsText}>Tente outra busca ou categoria.</Text>
+          </View>
+        }
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { height: 58, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: theme.colors.border },
-  logo: { color: 'white', fontSize: 22, fontWeight: '900', letterSpacing: 4 },
-  headerActions: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center', gap: 18 },
-  headerIcon: { fontSize: 19 },
-  list: { paddingBottom: 26 },
-  post: { borderBottomWidth: 1, borderBottomColor: theme.colors.border, paddingBottom: 18 },
-  author: { flexDirection: 'row', alignItems: 'center', padding: 14 },
-  avatar: { width: 38, height: 38, borderRadius: 19 },
-  avatarText: { color: 'white', fontWeight: '900' },
-  authorName: { color: 'white', fontWeight: '900', marginLeft: 10 },
-  carName: { color: theme.colors.muted, marginLeft: 10, fontSize: 11, marginTop: 2 },
-  more: { marginLeft: 'auto', color: 'white' },
-  image: { width: '100%', aspectRatio: 1.12 },
-  photoPlaceholder: { fontSize: 42 },
-  postBody: { paddingHorizontal: 14 },
-  actions: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 16 },
-  action: { color: 'white', fontSize: 27 },
-  likes: { color: 'white', fontWeight: '900', marginTop: 5 },
-  caption: { color: '#E7E8EA', lineHeight: 20, marginTop: 6 },
-  commentsLink: { color: theme.colors.muted, fontSize: 11, marginTop: 6 },
-  demo: { color: '#F5C451', fontSize: 10, fontWeight: '900', marginTop: 8 },
-  empty: { margin: 18, padding: 28, backgroundColor: theme.colors.surface, borderRadius: 22, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center' },
-  emptyIcon: { fontSize: 40 },
-  emptyTitle: { color: 'white', fontSize: 20, fontWeight: '900', textAlign: 'center', marginTop: 10 },
-  emptyText: { color: theme.colors.muted, textAlign: 'center', lineHeight: 20, marginTop: 8 },
-  createButton: { backgroundColor: theme.colors.accent, borderRadius: 14, paddingHorizontal: 18, paddingVertical: 12, marginTop: 16 },
-  createText: { color: 'white', fontWeight: '900' },
+  list: { paddingBottom: 22 },
+  topbar: {
+    minHeight: 58,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  topActions: { marginLeft: 'auto', flexDirection: 'row', alignItems: 'center' },
+  searchWrap: { paddingHorizontal: 14, paddingBottom: 14 },
+  categories: { paddingHorizontal: 14, gap: 17, paddingBottom: 16 },
+  category: { alignItems: 'center', minWidth: 58 },
+  categoryMark: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.colors.surface2,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryMarkActive: {
+    backgroundColor: '#1B080A',
+    borderColor: theme.colors.accent,
+  },
+  categoryText: { color: theme.colors.muted, fontSize: 10.5, marginTop: 6, fontWeight: '700' },
+  categoryTextActive: { color: theme.colors.text, fontWeight: '900' },
+  sectionRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: theme.colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sectionTitle: { color: theme.colors.text, fontSize: 15, fontWeight: '900' },
+  sectionLink: { color: theme.colors.accent, fontSize: 11, fontWeight: '900', marginLeft: 'auto' },
+  noResults: { margin: 18, padding: 32, alignItems: 'center' },
+  noResultsTitle: { color: theme.colors.text, fontSize: 18, fontWeight: '900', marginTop: 12 },
+  noResultsText: { color: theme.colors.muted, marginTop: 5 },
 });

@@ -36,12 +36,16 @@ export type FeedPost = {
   id: string;
   authorId?: string;
   author: string;
+  authorUsername?: string | null;
   authorAvatar?: string | null;
+  authorCity?: string | null;
+  authorState?: string | null;
   carName: string;
   carId?: string | null;
   image: string;
   caption: string;
   likes: number;
+  comments?: number;
   liked?: boolean;
   createdAt?: string;
 };
