@@ -130,7 +130,7 @@ begin
   insert into public.conversations(user_a, user_b)
   values (v_a, v_b)
   on conflict (user_a, user_b)
-  do update set updated_at = greatest(public.conversations.updated_at, excluded.updated_at)
+  do update set updated_at = now()
   returning id into v_id;
 
   return v_id;
