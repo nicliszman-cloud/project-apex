@@ -7,6 +7,7 @@ import { AppImage } from '@/components/AppImage';
 import { SearchBar } from '@/components/SearchBar';
 import { EmptyState } from '@/components/EmptyState';
 import { useApp } from '@/context/AppContext';
+import { normalizeStoredMediaUrl } from '@/lib/media';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 
@@ -87,7 +88,7 @@ export default function InboxScreen() {
         id: c.id,
         partnerId,
         partnerName: p?.display_name || p?.username || 'Driver',
-        partnerAvatar: p?.avatar_url || null,
+        partnerAvatar: normalizeStoredMediaUrl(p?.avatar_url),
         lastMessage: last?.body || 'Conversa iniciada',
         updatedAt: last?.created_at || c.updated_at,
         unread: unread.get(c.id) || 0,

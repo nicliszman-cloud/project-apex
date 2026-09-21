@@ -6,6 +6,7 @@ import { Screen } from '@/components/Screen';
 import { AppImage } from '@/components/AppImage';
 import { SectionTabs } from '@/components/SectionTabs';
 import { useApp } from '@/context/AppContext';
+import { normalizeStoredMediaUrl } from '@/lib/media';
 import { openConversation } from '@/lib/messaging';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
@@ -59,8 +60,11 @@ export default function UserProfileScreen() {
       myUserId ? supabase.from('blocks').select('blocked_id').eq('blocker_id', myUserId).eq('blocked_id', id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ]);
 
-    if (p.data) setProfile(p.data as PublicProfile);
-    setCars((c.data ?? []) as PublicCar[]);
+    if (p.data) setProfile({ ...p.data, avatar_url: normalizeStoredMediaUrl(p.data.avatar_url) } as PublicProfile);
+    setCars((c.data ?? []).map((row:any)=>({
+      ...row,
+      cover_url:normalizeStoredMediaUrl(row.cover_url),
+    })) as PublicCar[]);
     setFollowers(f1.count ?? 0);
     setFollowingCount(f2.count ?? 0);
     setFollowing(Boolean(mineFollow.data));

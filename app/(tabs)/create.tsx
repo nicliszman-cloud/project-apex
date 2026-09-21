@@ -2,6 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Location from 'expo-location';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 import { router } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { AppImage } from '@/components/AppImage';
@@ -216,8 +217,8 @@ export default function CreateScreen(){
           <Field label="Nome do evento" value={eventTitle} onChangeText={setEventTitle} placeholder="Street Night Meet"/>
           <Field label="Categoria" value={eventCategory} onChangeText={setEventCategory} placeholder="Meet, Track, JDM, Euro..."/>
           <Field label="Descrição" value={eventDescription} onChangeText={setEventDescription} multiline placeholder="Regras, horários e detalhes..."/>
-          <Field label="Local" value={eventVenue} onChangeText={setEventVenue} placeholder="Nome do local"/>
-          <View style={styles.row}><View style={{flex:1}}><Field label="Cidade" value={eventCity} onChangeText={setEventCity} placeholder="Cascavel"/></View><View style={{width:82}}><Field label="UF" value={eventState} onChangeText={setEventState} placeholder="PR"/></View></View>
+          <Field label="Local" value={eventVenue} onChangeText={(value:string)=>{setEventVenue(value);setEventLatitude(null);setEventLongitude(null)}} placeholder="Nome do local"/>
+          <View style={styles.row}><View style={{flex:1}}><Field label="Cidade" value={eventCity} onChangeText={(value:string)=>{setEventCity(value);setEventLatitude(null);setEventLongitude(null)}} placeholder="Cascavel"/></View><View style={{width:82}}><Field label="UF" value={eventState} onChangeText={(value:string)=>{setEventState(value);setEventLatitude(null);setEventLongitude(null)}} placeholder="PR"/></View></View>
           <Field label="Data e horário" value={eventStarts} onChangeText={setEventStarts} placeholder="2026-10-04 19:00"/>
           <Pressable style={[styles.mapLocation,eventLatitude!=null&&eventLongitude!=null&&styles.mapLocationReady]} onPress={()=>{void locateEvent();}} disabled={locatingEvent}>
             <Ionicons name={eventLatitude!=null&&eventLongitude!=null?'location':'map-outline'} size={18} color={eventLatitude!=null&&eventLongitude!=null?theme.colors.white:theme.colors.accent}/>
@@ -227,6 +228,24 @@ export default function CreateScreen(){
             </View>
             <Ionicons name="chevron-forward" size={17} color={eventLatitude!=null&&eventLongitude!=null?theme.colors.white:theme.colors.muted2}/>
           </Pressable>
+          {eventLatitude!=null&&eventLongitude!=null&&(
+            <View style={styles.eventMapPreview}>
+              <MapView
+                style={StyleSheet.absoluteFill}
+                region={{
+                  latitude:eventLatitude,
+                  longitude:eventLongitude,
+                  latitudeDelta:0.012,
+                  longitudeDelta:0.012,
+                }}
+                loadingEnabled
+                loadingBackgroundColor="#08090B"
+                loadingIndicatorColor={theme.colors.accent}
+              >
+                <Marker coordinate={{latitude:eventLatitude,longitude:eventLongitude}} pinColor={theme.colors.accent}/>
+              </MapView>
+            </View>
+          )}
           <PrimaryButton onPress={()=>{void saveEvent();}} disabled={saving} style={styles.save}>{saving?'Criando...':'Criar evento'}</PrimaryButton>
         </>}
       </ScrollView>
@@ -277,6 +296,7 @@ const styles=StyleSheet.create({
   mapLocationTitleReady:{color:theme.colors.white},
   mapLocationSub:{color:theme.colors.muted,fontSize:9,marginTop:3},
   mapLocationSubReady:{color:'rgba(255,255,255,.75)'},
+  eventMapPreview:{height:190,marginTop:12,borderRadius:theme.radius.lg,overflow:'hidden',borderWidth:1,borderColor:theme.colors.borderStrong,backgroundColor:'#08090B'},
   save:{marginTop:24},
   hubHeader:{paddingHorizontal:18,paddingTop:10,paddingBottom:18},
   hubTitle:{color:theme.colors.text,fontSize:29,fontWeight:'900'},

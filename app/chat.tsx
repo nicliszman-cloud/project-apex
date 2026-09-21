@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '@/components/Screen';
 import { AppImage } from '@/components/AppImage';
 import { useApp } from '@/context/AppContext';
+import { normalizeStoredMediaUrl } from '@/lib/media';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 
@@ -53,7 +54,7 @@ export default function ChatScreen() {
 
       if (!active) return;
 
-      if (profile) setPartner({ id: profile.id, name: profile.display_name || profile.username || 'Driver', username: profile.username, avatar: profile.avatar_url });
+      if (profile) setPartner({ id: profile.id, name: profile.display_name || profile.username || 'Driver', username: profile.username, avatar: normalizeStoredMediaUrl(profile.avatar_url) });
 
       if (messagesError) {
         Alert.alert('Chat', messagesError.message);
@@ -67,7 +68,7 @@ export default function ChatScreen() {
           .select('id, title, image_url, price_cents, currency, kind')
           .eq('id', listingId)
           .maybeSingle();
-        if (listingRow) setListing(listingRow as ListingContext);
+        if (listingRow) setListing({ ...listingRow, image_url: normalizeStoredMediaUrl(listingRow.image_url) } as ListingContext);
       }
 
       await supabase!

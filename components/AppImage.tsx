@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { ImageStyle, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
-import { resolveMediaCandidates, resolveSignedMediaUrl } from '@/lib/media';
+import { resolveMediaCandidates, resolveRemoteImageForDisplay, resolveSignedMediaUrl } from '@/lib/media';
 import { theme } from '@/lib/theme';
 
 type Props = {
@@ -32,11 +32,15 @@ export function AppImage({
   const candidatesKey = candidates.join('|');
   const [candidateIndex, setCandidateIndex] = useState(0);
   const [signedFallback, setSignedFallback] = useState<string | null>(null);
+  const [remoteFallback, setRemoteFallback] = useState<string | null>(null);
+  const [probingRemote, setProbingRemote] = useState(false);
 
   useEffect(() => {
     let active = true;
     setCandidateIndex(0);
     setSignedFallback(null);
+    setRemoteFallback(null);
+    setProbingRemote(false);
 
     async function prepareSignedFallback() {
       const primary = await resolveSignedMediaUrl(uri);
@@ -57,11 +61,35 @@ export function AppImage({
     };
   }, [candidatesKey, uri, fallbackUri]);
 
-  const allCandidates = signedFallback
-    ? [...candidates, signedFallback].filter((value, index, array) => array.indexOf(value) === index)
-    : candidates;
+  const allCandidates = [...candidates, signedFallback, remoteFallback]
+    .filter((value): value is string => Boolean(value))
+    .filter((value, index, array) => array.indexOf(value) === index);
 
   const resolved = allCandidates[candidateIndex];
+
+  async function handleError() {
+    if (candidateIndex + 1 < allCandidates.length) {
+      setCandidateIndex((current) => current + 1);
+      return;
+    }
+
+    if (probingRemote) {
+      setCandidateIndex(allCandidates.length);
+      return;
+    }
+
+    setProbingRemote(true);
+    const remote = await resolveRemoteImageForDisplay(uri)
+      || await resolveRemoteImageForDisplay(fallbackUri);
+
+    if (remote && !allCandidates.includes(remote)) {
+      setRemoteFallback(remote);
+      setCandidateIndex(allCandidates.length);
+      return;
+    }
+
+    setCandidateIndex(allCandidates.length);
+  }
 
   if (!resolved) {
     return (
@@ -80,7 +108,7 @@ export function AppImage({
       transition={120}
       recyclingKey={resolved}
       accessibilityLabel={accessibilityLabel}
-      onError={() => setCandidateIndex((current) => Math.min(current + 1, allCandidates.length))}
+      onError={() => { void handleError(); }}
     />
   );
 }

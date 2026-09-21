@@ -8,6 +8,7 @@ import { SearchBar } from '@/components/SearchBar';
 import { SectionTabs } from '@/components/SectionTabs';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { useApp } from '@/context/AppContext';
+import { normalizeStoredMediaUrl } from '@/lib/media';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 
@@ -60,8 +61,14 @@ export default function DiscoverScreen(){
         supabase.from('profiles').select('id, display_name, username, avatar_url, city, state').neq('id',myUserId || '').limit(30),
         myUserId ? supabase.from('swipes').select('target_car_id').eq('user_id',myUserId) : Promise.resolve({data:[],error:null}),
       ]);
-      if(!listingResult.error) setListings((listingResult.data ?? []) as Listing[]);
-      if(!userResult.error) setUsers((userResult.data ?? []) as UserCard[]);
+      if(!listingResult.error) setListings((listingResult.data ?? []).map((row:any)=>({
+        ...row,
+        image_url:normalizeStoredMediaUrl(row.image_url),
+      })) as Listing[]);
+      if(!userResult.error) setUsers((userResult.data ?? []).map((row:any)=>({
+        ...row,
+        avatar_url:normalizeStoredMediaUrl(row.avatar_url),
+      })) as UserCard[]);
       setEvaluated((swipeResult.data ?? []).map((row:any)=>row.target_car_id));
     }
     void loadAux();

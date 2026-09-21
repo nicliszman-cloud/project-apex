@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Screen } from '@/components/Screen';
 import { AppImage } from '@/components/AppImage';
 import { useApp } from '@/context/AppContext';
+import { normalizeStoredMediaUrl } from '@/lib/media';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 
@@ -31,7 +32,7 @@ export default function PostDetailScreen() {
     const map = new Map((profiles ?? []).map((p: any) => [p.id, p]));
     setComments((rows ?? []).map((row: any) => {
       const p: any = map.get(row.author_id);
-      return { id: row.id, authorId: row.author_id, author: p?.display_name || p?.username || 'Driver', avatar: p?.avatar_url || null, body: row.body, createdAt: row.created_at };
+      return { id: row.id, authorId: row.author_id, author: p?.display_name || p?.username || 'Driver', avatar: normalizeStoredMediaUrl(p?.avatar_url), body: row.body, createdAt: row.created_at };
     }));
   }
 

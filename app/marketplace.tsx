@@ -8,6 +8,7 @@ import { SearchBar } from '@/components/SearchBar';
 import { SectionTabs } from '@/components/SectionTabs';
 import { EmptyState } from '@/components/EmptyState';
 import { useApp } from '@/context/AppContext';
+import { normalizeStoredMediaUrl } from '@/lib/media';
 import { openConversation } from '@/lib/messaging';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
@@ -65,6 +66,7 @@ export default function MarketplaceScreen() {
     const map = new Map((profiles ?? []).map((p: any) => [p.id, p]));
     setListings((data ?? []).map((row: any) => ({
       ...row,
+      image_url: normalizeStoredMediaUrl(row.image_url),
       sellerName: map.get(row.seller_id)?.display_name || map.get(row.seller_id)?.username || 'Driver',
     })));
   }

@@ -1,8 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Location from 'expo-location';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import MapView, { Marker, Region } from 'react-native-maps';
 import { router } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { AppImage } from '@/components/AppImage';
@@ -53,6 +53,7 @@ export default function MeetsMapScreen() {
   const [userLocation, setUserLocation] = useState<UserCoordinate | null>(null);
   const [locationAllowed, setLocationAllowed] = useState(false);
   const [loadingLocation, setLoadingLocation] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
 
   const selected = useMemo(
     () => events.find((item) => item.id === selectedId) || null,
@@ -71,7 +72,12 @@ export default function MeetsMapScreen() {
         .not('longitude', 'is', null);
 
       if (!mounted) return;
-      if (error?.code === '42703') {
+      const missingCoordinates =
+        error?.code === '42703'
+        || error?.code === 'PGRST204'
+        || /latitude|longitude/i.test(error?.message || '');
+
+      if (missingCoordinates) {
         setEventCoordinates([]);
         return;
       }
@@ -256,7 +262,6 @@ export default function MeetsMapScreen() {
         <MapView
           ref={mapRef}
           style={StyleSheet.absoluteFill}
-          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
           initialRegion={initialRegion}
           customMapStyle={DARK_MAP_STYLE}
           userInterfaceStyle="dark"
@@ -264,6 +269,10 @@ export default function MeetsMapScreen() {
           showsMyLocationButton={false}
           showsCompass={false}
           toolbarEnabled={false}
+          loadingEnabled
+          loadingBackgroundColor="#08090B"
+          loadingIndicatorColor={theme.colors.accent}
+          onMapReady={() => setMapReady(true)}
           onPress={() => setSelectedId('')}
         >
           {eventCoordinates.map((coordinate) => {
@@ -287,6 +296,13 @@ export default function MeetsMapScreen() {
             );
           })}
         </MapView>
+
+        {!mapReady && (
+          <View pointerEvents="none" style={styles.mapLoading}>
+            <Ionicons name="map-outline" size={24} color={theme.colors.accent} />
+            <Text style={styles.mapLoadingText}>Carregando mapa...</Text>
+          </View>
+        )}
 
         {!locationAllowed && !loadingLocation && (
           <View style={styles.permissionBanner}>
@@ -358,6 +374,14 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.accent,
     borderColor: '#41090E',
   },
+  mapLoading: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#08090B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+  },
+  mapLoadingText: { color: theme.colors.muted, fontSize: 10.5, fontWeight: '700' },
   permissionBanner: {
     position: 'absolute',
     top: 12,

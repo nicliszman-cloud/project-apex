@@ -168,6 +168,18 @@ export function resolveMediaUrl(value?: string | null): string | null {
   return resolveMediaCandidates(value)[0] ?? null;
 }
 
+export function normalizeStoredMediaUrl(value?: string | null): string | null {
+  if (!value) return null;
+  const cleaned = cleanMediaValue(value);
+  if (!cleaned) return null;
+
+  // These schemes are only valid on the device/session that created them.
+  // Never prefer them when reading persistent Supabase rows after a restart.
+  if (/^(file:|content:|blob:|data:)/i.test(cleaned)) return null;
+
+  return resolveMediaUrl(cleaned) || cleaned;
+}
+
 export function storagePathFromPublicUrl(value?: string | null): string | null {
   if (!value) return null;
   const cleaned = cleanMediaValue(value);
@@ -270,7 +282,7 @@ function remoteImageType(buffer: ArrayBuffer, contentType?: string | null, sourc
   return null;
 }
 
-function extractImageFromHtml(html: string, pageUrl: string) {
+export function extractImageFromHtml(html: string, pageUrl: string) {
   const patterns = [
     /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i,
     /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::secure_url)?["']/i,
@@ -292,6 +304,46 @@ function extractImageFromHtml(html: string, pageUrl: string) {
       return new URL(raw, pageUrl).toString();
     } catch {
       return raw;
+    }
+  }
+
+  return null;
+}
+
+export async function resolveRemoteImageForDisplay(value?: string | null): Promise<string | null> {
+  if (!value) return null;
+
+  const queue = [...resolveMediaCandidates(value)];
+  const visited = new Set<string>();
+
+  while (queue.length) {
+    const candidate = queue.shift()!;
+    if (!/^https?:\/\//i.test(candidate) || visited.has(candidate)) continue;
+    visited.add(candidate);
+
+    try {
+      const response = await fetch(candidate, {
+        method: 'GET',
+        headers: {
+          Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,text/html,*/*;q=0.8',
+        },
+      });
+
+      if (!response.ok) continue;
+
+      const contentType = response.headers.get('content-type')?.toLowerCase() || '';
+      if (contentType.startsWith('image/')) return response.url || candidate;
+
+      if (contentType.includes('text/html')) {
+        const html = await response.text();
+        const pageImage = extractImageFromHtml(html, response.url || candidate);
+        if (!pageImage) continue;
+
+        const resolved = resolveMediaCandidates(pageImage);
+        if (resolved[0]) return resolved[0];
+      }
+    } catch {
+      // Try the next representation.
     }
   }
 

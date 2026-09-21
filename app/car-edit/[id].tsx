@@ -6,7 +6,7 @@ import { Screen } from '@/components/Screen';
 import { AppImage } from '@/components/AppImage';
 import { PrimaryButton } from '@/components/PrimaryButton';
 import { useApp } from '@/context/AppContext';
-import { LocalImage, pickImages, resolveMediaUrl, storagePathFromPublicUrl, uploadPublicImage } from '@/lib/media';
+import { importRemoteImage, LocalImage, pickImages, resolveMediaUrl, storagePathFromPublicUrl, uploadPublicImage } from '@/lib/media';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 import { CarCategory } from '@/types';
@@ -46,7 +46,12 @@ export default function CarEditScreen(){
         for(const image of replacementImages.slice(0,6)) urls.push(await uploadPublicImage(myUserId,image,'cars/'+car.id));
         const remaining=Math.max(0,6-urls.length);
         for(const remoteUrl of remoteUrls.slice(0,remaining)){
-          const resolved=resolveMediaUrl(remoteUrl)||remoteUrl.trim();
+          let resolved:string|null=null;
+          try{
+            resolved=await importRemoteImage(myUserId,remoteUrl,'cars/'+car.id+'/remote');
+          }catch{
+            resolved=resolveMediaUrl(remoteUrl)||remoteUrl.trim();
+          }
           if(resolved) urls.push(resolved);
         }
         if(urls.length){
@@ -78,7 +83,7 @@ export default function CarEditScreen(){
       keyboardType="url"
       placeholder={'Cole uma URL por linha\nhttps://site.com/foto1.jpg'}
     />
-    <Text style={styles.urlHelp}>URLs externas são salvas diretamente no projeto. A primeira foto vira a capa.</Text>
+    <Text style={styles.urlHelp}>O StreetClub tenta importar URLs externas para o Storage; se o site bloquear, mantém o link original. A primeira foto válida vira a capa.</Text>
     <Field label="Marca" value={make} onChangeText={setMake}/><Field label="Modelo" value={model} onChangeText={setModel}/><Field label="Versão" value={version} onChangeText={setVersion}/>
     <View style={styles.row}><View style={{flex:1}}><Field label="Ano" value={year} onChangeText={setYear} keyboardType="number-pad"/></View><View style={{flex:1}}><Field label="Potência atual" value={currentHp} onChangeText={setCurrentHp} keyboardType="number-pad"/></View></View>
     <Field label="Motor" value={engine} onChangeText={setEngine}/><Field label="Câmbio" value={transmission} onChangeText={setTransmission}/><Field label="Tração" value={drivetrain} onChangeText={setDrivetrain}/>

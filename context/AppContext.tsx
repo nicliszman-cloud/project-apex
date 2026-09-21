@@ -1,6 +1,6 @@
 import React, { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { demoCars, demoEvents, demoPosts } from '@/data/mock';
-import { LocalImage, resolveMediaUrl, uploadPublicImage } from '@/lib/media';
+import { importRemoteImage, LocalImage, normalizeStoredMediaUrl, resolveMediaUrl, uploadPublicImage } from '@/lib/media';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { Car, CarCategory, CarEvent, FeedPost, MatchSummary, Profile } from '@/types';
 
@@ -68,6 +68,26 @@ function eventDate(value: string) {
     hour: '2-digit',
     minute: '2-digit',
   }).toUpperCase();
+}
+
+function isMissingColumnError(error: any, columns: string[] = []) {
+  if (!error) return false;
+  if (error.code === '42703' || error.code === 'PGRST204') return true;
+
+  const message = String(error.message || error.details || '').toLowerCase();
+  return columns.some((column) => message.includes(column.toLowerCase()))
+    && (message.includes('column') || message.includes('schema cache'));
+}
+
+async function persistRemoteImage(userId: string, value: string, folder: string) {
+  const raw = value.trim();
+  if (!raw) return null;
+
+  try {
+    return await importRemoteImage(userId, raw, folder);
+  } catch {
+    return resolveMediaUrl(raw) || raw;
+  }
 }
 
 export function AppProvider({ children }: PropsWithChildren) {
@@ -144,7 +164,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       }
 
       let carRows: any[] = carResult.data ?? [];
-      if (carResult.error?.code === '42703') {
+      if (isMissingColumnError(carResult.error, ['version', 'fuel', 'description'])) {
         const fallbackCars = await supabase
           .from('cars')
           .select('id, owner_id, make, model, model_year, engine, transmission, drivetrain, stock_hp, current_hp, category, city, state, cover_url, modifications, created_at')
@@ -160,7 +180,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         id: me.id,
         username: me.username,
         displayName: me.display_name || 'Driver',
-        avatarUrl: me.avatar_url,
+        avatarUrl: normalizeStoredMediaUrl(me.avatar_url),
         city: me.city,
         state: me.state,
         bio: me.bio,
@@ -168,8 +188,10 @@ export function AppProvider({ children }: PropsWithChildren) {
 
       const photosByCar = new Map<string, string[]>();
       for (const row of carPhotoResult.data ?? []) {
+        const normalized = normalizeStoredMediaUrl(row.url);
+        if (!normalized) continue;
         const list = photosByCar.get(row.car_id) ?? [];
-        list.push(row.url);
+        list.push(normalized);
         photosByCar.set(row.car_id, list);
       }
 
@@ -177,13 +199,14 @@ export function AppProvider({ children }: PropsWithChildren) {
         const owner: any = profiles.get(row.owner_id);
         const displayName = owner?.display_name || owner?.username || 'Driver';
         const storedPhotos = photosByCar.get(row.id) ?? [];
-        const images = [...new Set([...storedPhotos, row.cover_url].filter(Boolean))] as string[];
+        const storedCover = normalizeStoredMediaUrl(row.cover_url);
+        const images = [...new Set([storedCover, ...storedPhotos].filter(Boolean))] as string[];
         const cover = images[0] || FALLBACK_CAR_IMAGE;
         return {
           id: row.id,
           ownerId: row.owner_id,
           ownerName: displayName,
-          ownerAvatar: owner?.avatar_url || displayName.slice(0, 1).toUpperCase(),
+          ownerAvatar: normalizeStoredMediaUrl(owner?.avatar_url) || displayName.slice(0, 1).toUpperCase(),
           make: row.make,
           model: row.model,
           version: row.version ?? null,
@@ -218,12 +241,12 @@ export function AppProvider({ children }: PropsWithChildren) {
           authorId: row.author_id,
           author: author?.display_name || author?.username || 'Driver',
           authorUsername: author?.username || null,
-          authorAvatar: author?.avatar_url,
+          authorAvatar: normalizeStoredMediaUrl(author?.avatar_url),
           authorCity: author?.city || null,
           authorState: author?.state || null,
           carName: car ? `${car.make} ${car.model}` : 'Projeto',
           carId: row.car_id,
-          image: row.media_url || car?.image || FALLBACK_CAR_IMAGE,
+          image: normalizeStoredMediaUrl(row.media_url) || car?.image || FALLBACK_CAR_IMAGE,
           caption: row.caption ?? '',
           likes: postLikes.length,
           comments: commentRows.filter((comment: any) => comment.post_id === row.id).length,
@@ -244,7 +267,7 @@ export function AppProvider({ children }: PropsWithChildren) {
           city: [row.city, row.state].filter(Boolean).join(' • '),
           category: row.category || 'Meet',
           attendees: eventAttendance.length,
-          image: row.cover_url || FALLBACK_EVENT_IMAGE,
+          image: normalizeStoredMediaUrl(row.cover_url) || FALLBACK_EVENT_IMAGE,
           joined: eventAttendance.some((item: any) => item.user_id === userId),
           description: row.description,
           startsAt: row.starts_at,
@@ -260,7 +283,7 @@ export function AppProvider({ children }: PropsWithChildren) {
           id: row.id,
           partnerId,
           partnerName: partner?.display_name || partner?.username || 'Driver',
-          partnerAvatar: partner?.avatar_url,
+          partnerAvatar: normalizeStoredMediaUrl(partner?.avatar_url),
           partnerCarName: partnerCar ? `${partnerCar.make} ${partnerCar.model}` : 'Carro',
           partnerCarImage: partnerCar?.image,
           createdAt: row.created_at,
@@ -432,7 +455,7 @@ export function AppProvider({ children }: PropsWithChildren) {
 
       const remaining = Math.max(0, 6 - urls.length);
       for (const remoteUrl of remoteUrls.slice(0, remaining)) {
-        const resolved = resolveMediaUrl(remoteUrl) || remoteUrl.trim();
+        const resolved = await persistRemoteImage(myUserId, remoteUrl, `cars/${inserted.id}/remote`);
         if (resolved) urls.push(resolved);
       }
 
@@ -479,7 +502,9 @@ export function AppProvider({ children }: PropsWithChildren) {
 
     const mediaUrl = post.image
       ? await uploadPublicImage(myUserId, post.image, 'posts')
-      : (resolveMediaUrl(externalUrl) || externalUrl);
+      : externalUrl
+        ? await persistRemoteImage(myUserId, externalUrl, 'posts/remote')
+        : null;
 
     if (!mediaUrl) throw new Error('A imagem da publicação não é válida.');
 
@@ -529,7 +554,7 @@ export function AppProvider({ children }: PropsWithChildren) {
       longitude: event.longitude ?? null,
     }).select('id').single();
 
-    if (result.error?.code === '42703') {
+    if (isMissingColumnError(result.error, ['latitude', 'longitude'])) {
       result = await supabase.from('events').insert(basePayload).select('id').single();
     }
 
