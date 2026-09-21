@@ -170,8 +170,8 @@ export default function DiscoverScreen(){
         </>}
 
         {mode==='Peças' && <>
-          <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Peças e anúncios</Text><Pressable onPress={()=>router.push('/marketplace')}><Text style={styles.sectionLink}>Ver tudo</Text></Pressable></View>
-          {filteredListings.length===0 ? <CenterState icon="construct-outline" title="Nenhum anúncio encontrado"/> : filteredListings.map((item)=><Pressable key={item.id} style={styles.listRow} onPress={()=>router.push('/marketplace')}>
+          <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Peças e anúncios</Text><Pressable onPress={()=>router.push('/(tabs)/marketplace')}><Text style={styles.sectionLink}>Ver tudo</Text></Pressable></View>
+          {filteredListings.length===0 ? <CenterState icon="construct-outline" title="Nenhum anúncio encontrado"/> : filteredListings.map((item)=><Pressable key={item.id} style={styles.listRow} onPress={()=>router.push('/(tabs)/marketplace')}>
             <AppImage uri={item.image_url} style={styles.listImage} placeholder={<Ionicons name="construct-outline" size={24} color={theme.colors.muted2}/>}/>
             <View style={styles.listInfo}><Text style={styles.listTitle} numberOfLines={1}>{item.title}</Text><Text style={styles.listMeta}>{item.part_category || 'Peça'} · {[item.city,item.state].filter(Boolean).join(', ') || 'Brasil'}</Text></View>
             <Text style={styles.listPrice}>{price(item)}</Text>

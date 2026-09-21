@@ -59,7 +59,7 @@ export default function MarketplaceCreateScreen() {
         image_url: imageUrl,
       });
       if (error) throw error;
-      router.replace('/marketplace');
+      router.replace('/(tabs)/marketplace');
     } catch (error: any) {
       Alert.alert('Não foi possível publicar', error?.message ?? 'Tente novamente.');
     } finally {

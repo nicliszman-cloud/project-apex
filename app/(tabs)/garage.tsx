@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { AppImage } from '@/components/AppImage';
 import { SectionTabs } from '@/components/SectionTabs';
@@ -13,8 +13,13 @@ const tabs=['Garagem','Posts','Eventos','Salvos'] as const;
 type ProfileTab=typeof tabs[number];
 
 export default function GarageScreen(){
+  const {section}=useLocalSearchParams<{section?:string}>();
   const {cars,posts,events,profile,myUserId,loading}=useApp();
   const [tab,setTab]=useState<ProfileTab>('Garagem');
+
+  useEffect(()=>{
+    if(section && tabs.includes(section as ProfileTab)) setTab(section as ProfileTab);
+  },[section]);
   const [followers,setFollowers]=useState(0);
   const [following,setFollowing]=useState(0);
 
@@ -44,7 +49,7 @@ export default function GarageScreen(){
           {hero ? <AppImage uri={hero} style={StyleSheet.absoluteFill} /> : <View style={styles.coverFallback}><Ionicons name="car-sport-outline" size={54} color={theme.colors.muted2}/></View>}
           <View style={styles.coverShade}/>
           <View style={styles.topActions}>
-            <Pressable style={styles.iconButton} onPress={()=>router.push('/profile-edit')}><Ionicons name="settings-outline" size={20} color={theme.colors.text}/></Pressable>
+            <Pressable style={styles.iconButton} onPress={()=>router.push('/menu')}><Ionicons name="menu-outline" size={21} color={theme.colors.text}/></Pressable>
           </View>
         </View>
 

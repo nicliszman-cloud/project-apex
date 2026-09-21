@@ -78,6 +78,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen name="meets" options={{ href: null }} />
+      <Tabs.Screen name="marketplace" options={{ href: null }} />
     </Tabs>
   );
 }
