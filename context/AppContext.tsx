@@ -152,8 +152,9 @@ export function AppProvider({ children }: PropsWithChildren) {
       const mappedCars: Car[] = (carResult.data ?? []).map((row: any) => {
         const owner: any = profiles.get(row.owner_id);
         const displayName = owner?.display_name || owner?.username || 'Driver';
-        const images = photosByCar.get(row.id) ?? [];
-        const cover = row.cover_url || images[0] || FALLBACK_CAR_IMAGE;
+        const storedPhotos = photosByCar.get(row.id) ?? [];
+        const images = [...new Set([...storedPhotos, row.cover_url].filter(Boolean))] as string[];
+        const cover = images[0] || FALLBACK_CAR_IMAGE;
         return {
           id: row.id,
           ownerId: row.owner_id,

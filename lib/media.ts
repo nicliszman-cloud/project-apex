@@ -47,22 +47,134 @@ function mimeFor(image: LocalImage, ext: string) {
   return 'image/' + ext;
 }
 
-export function resolveMediaUrl(value?: string | null): string | null {
-  if (!value) return null;
-  if (/^(https?:|file:|content:|data:|blob:)/i.test(value)) return value;
-  if (!supabase) return value;
+function cleanMediaValue(value: string) {
+  let cleaned = value.trim();
 
-  const normalized = value.replace(/^\/+/, '').replace(/^media\//, '');
-  return supabase.storage.from('media').getPublicUrl(normalized).data.publicUrl;
+  if (
+    (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
+    (cleaned.startsWith("'") && cleaned.endsWith("'"))
+  ) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+
+  return cleaned;
+}
+
+function pushUnique(list: string[], value?: string | null) {
+  if (!value) return;
+  const clean = value.trim();
+  if (clean && !list.includes(clean)) list.push(clean);
+}
+
+function googleDriveDirect(value: string) {
+  const fileMatch = value.match(/drive\.google\.com\/file\/d\/([^/?#]+)/i);
+  const idMatch = value.match(/[?&]id=([^&#]+)/i);
+  const id = fileMatch?.[1] || idMatch?.[1];
+  return id ? `https://drive.google.com/uc?export=view&id=${id}` : null;
+}
+
+function dropboxDirect(value: string) {
+  if (!/dropbox\.com/i.test(value)) return null;
+  try {
+    const url = new URL(value);
+    url.hostname = 'dl.dropboxusercontent.com';
+    url.searchParams.delete('dl');
+    url.searchParams.delete('raw');
+    return url.toString();
+  } catch {
+    return value
+      .replace('www.dropbox.com', 'dl.dropboxusercontent.com')
+      .replace(/[?&](dl|raw)=\d/gi, '');
+  }
+}
+
+function githubRaw(value: string) {
+  const match = value.match(/^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/i);
+  if (!match) return null;
+  return `https://raw.githubusercontent.com/${match[1]}/${match[2]}/${match[3]}/${match[4]}`;
+}
+
+/**
+ * Creates a sequence of image-source candidates.
+ *
+ * Supported without special handling:
+ * - Any direct http/https image URL, even without a file extension.
+ * - file:, content:, data: and blob: URIs.
+ * - Public paths from the Supabase "media" bucket.
+ *
+ * Also normalizes common share links from Google Drive, Dropbox and GitHub.
+ * A generic web page that returns HTML instead of image bytes still cannot be
+ * rendered as an image; in that case AppImage falls through to its placeholder.
+ */
+export function resolveMediaCandidates(value?: string | null): string[] {
+  if (!value) return [];
+
+  const cleaned = cleanMediaValue(value);
+  if (!cleaned) return [];
+
+  const candidates: string[] = [];
+
+  if (/^(file:|content:|data:|blob:)/i.test(cleaned)) {
+    pushUnique(candidates, cleaned);
+    return candidates;
+  }
+
+  let external = cleaned;
+
+  if (external.startsWith('//')) {
+    external = 'https:' + external;
+  } else if (!/^[a-z][a-z0-9+.-]*:/i.test(external)) {
+    const looksLikeDomain = /^(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}(?::\d+)?(?:\/|$)/i.test(external);
+    if (looksLikeDomain) external = 'https://' + external;
+  }
+
+  if (/^https?:\/\//i.test(external)) {
+    pushUnique(candidates, googleDriveDirect(external));
+    pushUnique(candidates, dropboxDirect(external));
+    pushUnique(candidates, githubRaw(external));
+
+    // Android/Expo Go commonly rejects plain HTTP. Try HTTPS first when possible.
+    if (/^http:\/\//i.test(external)) {
+      pushUnique(candidates, external.replace(/^http:\/\//i, 'https://'));
+    }
+
+    pushUnique(candidates, external);
+
+    try {
+      const encoded = encodeURI(external);
+      pushUnique(candidates, encoded);
+    } catch {
+      // Keep the original candidate when encoding fails.
+    }
+
+    return candidates;
+  }
+
+  if (!supabase) {
+    pushUnique(candidates, cleaned);
+    return candidates;
+  }
+
+  const normalized = cleaned.replace(/^\/+/, '').replace(/^media\//, '');
+  const publicUrl = supabase.storage.from('media').getPublicUrl(normalized).data.publicUrl;
+  pushUnique(candidates, publicUrl);
+  pushUnique(candidates, cleaned);
+
+  return candidates;
+}
+
+export function resolveMediaUrl(value?: string | null): string | null {
+  return resolveMediaCandidates(value)[0] ?? null;
 }
 
 export function storagePathFromPublicUrl(value?: string | null): string | null {
   if (!value) return null;
-  if (!/^https?:/i.test(value)) return value.replace(/^\/+/, '').replace(/^media\//, '');
+  const cleaned = cleanMediaValue(value);
+  if (!/^https?:/i.test(cleaned)) return cleaned.replace(/^\/+/, '').replace(/^media\//, '');
   const marker = '/storage/v1/object/public/media/';
-  const index = value.indexOf(marker);
+  const index = cleaned.indexOf(marker);
   if (index < 0) return null;
-  return decodeURIComponent(value.slice(index + marker.length));
+  return decodeURIComponent(cleaned.slice(index + marker.length));
 }
 
 export async function uploadPublicImage(

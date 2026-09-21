@@ -1,11 +1,12 @@
-import { ReactNode, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { ImageStyle, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
-import { resolveMediaUrl } from '@/lib/media';
+import { resolveMediaCandidates } from '@/lib/media';
 import { theme } from '@/lib/theme';
 
 type Props = {
   uri?: string | null;
+  fallbackUri?: string | null;
   style?: StyleProp<ImageStyle>;
   contentFit?: 'cover' | 'contain' | 'fill' | 'none' | 'scale-down';
   placeholder?: ReactNode;
@@ -14,31 +15,47 @@ type Props = {
 
 export function AppImage({
   uri,
+  fallbackUri,
   style,
   contentFit = 'cover',
   placeholder,
   accessibilityLabel,
 }: Props) {
-  const [failed, setFailed] = useState(false);
-  const resolved = useMemo(() => resolveMediaUrl(uri), [uri]);
+  const candidates = useMemo(() => {
+    const merged = [
+      ...resolveMediaCandidates(uri),
+      ...resolveMediaCandidates(fallbackUri),
+    ];
+    return [...new Set(merged)];
+  }, [uri, fallbackUri]);
 
-  if (!resolved || failed) {
+  const candidatesKey = candidates.join('|');
+  const [candidateIndex, setCandidateIndex] = useState(0);
+
+  useEffect(() => {
+    setCandidateIndex(0);
+  }, [candidatesKey]);
+
+  const resolved = candidates[candidateIndex];
+
+  if (!resolved) {
     return (
       <View style={[styles.placeholder, style as StyleProp<ViewStyle>]}>
-        {placeholder ?? <Text style={styles.icon}>🏎️</Text>}
+        {placeholder ?? <Text style={styles.icon}>SC</Text>}
       </View>
     );
   }
 
   return (
     <Image
-      source={resolved}
+      source={{ uri: resolved }}
       style={style}
       contentFit={contentFit}
       cachePolicy="memory-disk"
       transition={120}
+      recyclingKey={resolved}
       accessibilityLabel={accessibilityLabel}
-      onError={() => setFailed(true)}
+      onError={() => setCandidateIndex((current) => current + 1)}
     />
   );
 }
@@ -50,5 +67,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  icon: { fontSize: 34 },
+  icon: { color: theme.colors.muted2, fontSize: 14, fontWeight: '900', letterSpacing: 1 },
 });
