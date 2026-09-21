@@ -72,7 +72,7 @@ export default function ChatScreen() {
 
     return () => {
       active = false;
-      void supabase.removeChannel(channel);
+      void supabase!.removeChannel(channel);
     };
   }, [isDemo, matchId]);
 
