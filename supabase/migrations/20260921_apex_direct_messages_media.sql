@@ -67,6 +67,9 @@ with check (
   )
 );
 
+revoke update on public.direct_messages from authenticated;
+grant update(read_at) on public.direct_messages to authenticated;
+
 drop policy if exists "recipients update direct message read state" on public.direct_messages;
 create policy "recipients update direct message read state"
 on public.direct_messages for update to authenticated

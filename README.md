@@ -1,59 +1,24 @@
 # Project Apex
 
-Rede social mobile para carros esportivos e performance: **Discover + Garage + Feed + Meets + Garage Match + Chat + Peças**.
+Rede social mobile para carros esportivos e performance: **Discover + Garage + Feed + Meets + mensagens + Marketplace**.
 
-## Estado atual — v0.3
+## v0.4
 
-### Conta e perfil
-- autenticação real com Supabase
-- perfil persistente, avatar e bio
-- perfil público
-- seguir usuários
-- bloquear e denunciar
-- recuperação de senha por deep link
-- exclusão da própria conta
+- mensagens diretas independentes de Garage Match
+- contato com vendedor diretamente pelo Marketplace
+- caixa de entrada com não lidas
+- chat Realtime com contexto de anúncio
+- Garage Match continua existindo, mas não é necessário para conversar
+- safe area inferior corrigida em comentários, chat e barra de abas
+- renderização de mídia migrada para `expo-image`
+- suporte a URL pública ou path do Supabase Storage
+- fallback visual para mídia quebrada
+- troca/adicionamento de fotos em carros já existentes
+- gerenciamento de anúncios: reservado, vendido e excluir
+- links de privacidade/termos no app
+- configuração EAS inicial
 
-### Garagem
-- cadastro técnico completo
-- até 6 fotos por carro via Supabase Storage
-- galeria do carro
-- edição e exclusão do próprio carro
-
-### Social
-- feed real
-- likes persistentes
-- comentários
-- edição/exclusão do próprio post
-- notificações internas de follow, comentário e match
-- filtros no Discover por categoria, marca/modelo e potência
-- bloqueios aplicados também por RLS
-- Garage Match por curtida mútua
-- chat persistente com Supabase Realtime
-
-### Eventos
-- criação de meets/eventos
-- confirmação de presença
-- tela de detalhes
-- edição básica e exclusão pelo organizador
-
-### Marketplace inicial
-- vendo / troco / procuro
-- foto da peça
-- preço
-- categoria
-- compatibilidade
-- cidade/UF
-- associação opcional a um carro
-- busca e filtros
-
-## Stack
-- Expo SDK 57 / React Native 0.86
-- Expo Router
-- TypeScript
-- Expo Image Picker
-- Supabase Auth, Postgres, Storage e Realtime
-
-## Atualizar e rodar
+## Atualizar
 
 ```bash
 git pull origin main
@@ -61,33 +26,30 @@ npm install
 npx expo start -c
 ```
 
-## Banco de dados
+## Banco
 
-Quem já executou o schema inicial e a migration v0.2 deve executar apenas:
+Depois das migrations v0.1–v0.3, execute somente:
 
 ```text
-supabase/migrations/20260921_apex_community_marketplace.sql
+supabase/migrations/20260921_apex_direct_messages_media.sql
 ```
-
-no SQL Editor do Supabase.
 
 ## Recuperação de senha
 
-Em **Supabase → Authentication → URL Configuration**, adicione aos Redirect URLs:
+Em Supabase → Authentication → URL Configuration, mantenha:
 
 ```text
 projectapex://reset-password
 ```
 
-## Variáveis locais
+## Teste de fotos antigas
 
-```env
-EXPO_PUBLIC_SUPABASE_URL=https://SEU-PROJETO.supabase.co
-EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=SUA_PUBLISHABLE_KEY
-```
+Abra **Garage → seu carro → Editar carro → Adicionar / trocar fotos**. Escolha até 6 fotos e salve. A primeira passa a ser a capa.
 
-Nunca use uma service-role key no aplicativo cliente.
+## Build
 
-## Ainda necessário antes de lançamento público
+O arquivo `eas.json` já contém perfis development, preview e production. A associação do projeto à conta Expo ainda precisa ser feita com `eas init`, pois depende da conta do proprietário.
 
-O núcleo do MVP está funcional, mas publicação comercial ainda exige trabalho operacional e de loja: política de privacidade/LGPD, termos/regras da comunidade, processo/painel de moderação, notificações push, testes E2E, analytics/crash reporting, assets definitivos, builds de produção e submissão às lojas.
+## Pré-lançamento
+
+Veja `docs/RELEASE_CHECKLIST.md`. Política e termos atuais são rascunhos técnicos e precisam de revisão jurídica e URL pública antes de submissão às lojas.

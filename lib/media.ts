@@ -15,7 +15,7 @@ export async function pickImages(multiple = false): Promise<LocalImage[]> {
     mediaTypes: ['images'],
     allowsMultipleSelection: multiple,
     selectionLimit: multiple ? 6 : 1,
-    quality: 0.85,
+    quality: 0.9,
   });
 
   if (result.canceled) return [];
@@ -26,11 +26,34 @@ export async function pickImages(multiple = false): Promise<LocalImage[]> {
   }));
 }
 
+function cleanExtension(value?: string | null) {
+  const ext = value?.split('.').pop()?.split('?')[0]?.toLowerCase();
+  if (!ext) return null;
+  if (ext === 'jpeg') return 'jpg';
+  return ['jpg', 'png', 'webp', 'heic', 'heif', 'gif'].includes(ext) ? ext : null;
+}
+
 function extensionFor(image: LocalImage) {
-  const fromName = image.fileName?.split('.').pop()?.toLowerCase();
-  const fromUri = image.uri.split('.').pop()?.split('?')[0]?.toLowerCase();
-  const fromMime = image.mimeType?.split('/').pop()?.toLowerCase();
-  return fromName || fromUri || fromMime || 'jpg';
+  const fromMime = cleanExtension(image.mimeType?.split('/').pop());
+  const fromName = cleanExtension(image.fileName);
+  const fromUri = cleanExtension(image.uri);
+  return fromMime || fromName || fromUri || 'jpg';
+}
+
+function mimeFor(image: LocalImage, ext: string) {
+  if (image.mimeType?.startsWith('image/')) return image.mimeType;
+  if (ext === 'jpg') return 'image/jpeg';
+  if (ext === 'heic' || ext === 'heif') return 'image/heic';
+  return 'image/' + ext;
+}
+
+export function resolveMediaUrl(value?: string | null): string | null {
+  if (!value) return null;
+  if (/^(https?:|file:|content:|data:|blob:)/i.test(value)) return value;
+  if (!supabase) return value;
+
+  const normalized = value.replace(/^\/+/, '').replace(/^media\//, '');
+  return supabase.storage.from('media').getPublicUrl(normalized).data.publicUrl;
 }
 
 export function storagePathFromPublicUrl(value?: string | null): string | null {
@@ -51,18 +74,26 @@ export async function uploadPublicImage(
 
   const ext = extensionFor(image);
   const objectPath = `${userId}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const arrayBuffer = await fetch(image.uri).then((response) => response.arrayBuffer());
+  const response = await fetch(image.uri);
+  if (!response.ok && !image.uri.startsWith('file:') && !image.uri.startsWith('content:')) {
+    throw new Error('Não foi possível ler a imagem selecionada.');
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  if (!arrayBuffer.byteLength) throw new Error('A imagem selecionada está vazia.');
 
   const { error } = await supabase.storage
     .from('media')
     .upload(objectPath, arrayBuffer, {
-      contentType: image.mimeType || `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+      contentType: mimeFor(image, ext),
       upsert: false,
-      cacheControl: '3600',
+      cacheControl: '31536000',
     });
 
   if (error) throw error;
 
-  const { data } = supabase.storage.from('media').getPublicUrl(objectPath);
-  return data.publicUrl;
+  const publicUrl = supabase.storage.from('media').getPublicUrl(objectPath).data.publicUrl;
+  if (!publicUrl) throw new Error('O upload terminou, mas a URL pública não foi criada.');
+
+  return publicUrl;
 }

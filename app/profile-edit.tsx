@@ -87,6 +87,7 @@ export default function ProfileEditScreen() {
         <View style={styles.row}><View style={{ flex: 1 }}><Text style={styles.label}>Cidade</Text><TextInput style={styles.input} value={city} onChangeText={setCity} placeholder="Cascavel" placeholderTextColor={theme.colors.muted}/></View><View style={{ width: 90 }}><Text style={styles.label}>UF</Text><TextInput style={styles.input} value={state} onChangeText={setState} maxLength={2} autoCapitalize="characters" placeholder="PR" placeholderTextColor={theme.colors.muted}/></View></View>
         <Text style={styles.label}>Bio</Text><TextInput style={[styles.input, styles.bio]} value={bio} onChangeText={setBio} multiline maxLength={240} placeholder="Conte um pouco sobre seu gosto por carros..." placeholderTextColor={theme.colors.muted}/>
         <Pressable style={styles.save} onPress={save} disabled={saving}><Text style={styles.saveText}>{saving ? 'Salvando...' : 'Salvar perfil'}</Text></Pressable>
+        <Pressable style={styles.legal} onPress={() => router.push('/legal')}><Text style={styles.legalText}>Privacidade, termos e regras</Text><Text style={styles.legalArrow}>›</Text></Pressable>
         <Pressable style={styles.logout} onPress={logout}><Text style={styles.logoutText}>{isDemo ? 'Sair do modo demo' : 'Sair da conta'}</Text></Pressable>
         {!isDemo && <Pressable style={styles.delete} onPress={deleteAccount}><Text style={styles.deleteText}>Excluir minha conta</Text></Pressable>}
       </ScrollView>
@@ -110,6 +111,9 @@ const styles = StyleSheet.create({
   bio: { minHeight: 110, textAlignVertical: 'top' },
   save: { backgroundColor: theme.colors.accent, padding: 16, borderRadius: 15, alignItems: 'center', marginTop: 24 },
   saveText: { color: 'white', fontWeight: '900', fontSize: 15 },
+  legal: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.colors.border, padding: 15, borderRadius: 15, marginTop: 12 },
+  legalText: { color: '#D7DADE', fontWeight: '800' },
+  legalArrow: { color: theme.colors.muted, fontSize: 24, marginLeft: 'auto' },
   logout: { borderWidth: 1, borderColor: theme.colors.border, padding: 15, borderRadius: 15, alignItems: 'center', marginTop: 12 },
   logoutText: { color: '#D7DADE', fontWeight: '900' },
   delete: { borderWidth: 1, borderColor: '#68343A', padding: 15, borderRadius: 15, alignItems: 'center', marginTop: 12 },
