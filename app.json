@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "scheme": "projectapex",
+    "scheme": "streetclub",
     "plugins": [
       "expo-router",
       [
