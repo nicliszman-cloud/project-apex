@@ -5,7 +5,7 @@ import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { Car, CarCategory, CarEvent, FeedPost, MatchSummary, Profile } from '@/types';
 
 type NewCar = Omit<Car, 'id' | 'ownerId' | 'ownerName' | 'ownerAvatar' | 'images'>;
-type ProfileUpdate = Partial<Pick<Profile, 'username' | 'displayName' | 'avatarUrl' | 'city' | 'state' | 'bio'>>;
+type ProfileUpdate = Partial<Pick<Profile, 'username' | 'displayName' | 'avatarUrl' | 'coverUrl' | 'city' | 'state' | 'bio'>>;
 
 type NewPost = {
   caption: string;
@@ -49,6 +49,7 @@ type AppContextValue = {
   createEvent: (event: NewEvent) => Promise<void>;
   updateProfile: (values: ProfileUpdate) => Promise<void>;
   updateAvatar: (image: LocalImage) => Promise<void>;
+  updateCover: (image: LocalImage) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -134,7 +135,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         matchResult,
         swipeResult,
       ] = await Promise.all([
-        supabase.from('profiles').select('id, username, display_name, avatar_url, city, state, bio'),
+        supabase.from('profiles').select('id, username, display_name, avatar_url, cover_url, city, state, bio'),
         supabase.from('cars').select('id, owner_id, make, model, version, model_year, engine, transmission, drivetrain, fuel, description, stock_hp, current_hp, category, city, state, cover_url, modifications, created_at').order('created_at', { ascending: false }),
         supabase.from('car_photos').select('car_id, url, position').order('position', { ascending: true }),
         supabase.from('posts').select('id, author_id, car_id, caption, media_url, created_at').order('created_at', { ascending: false }),
@@ -172,7 +173,13 @@ export function AppProvider({ children }: PropsWithChildren) {
         if (!fallbackCars.error) carRows = fallbackCars.data ?? [];
       }
 
-      const profileRows = profileResult.data ?? [];
+      let profileRows: any[] = profileResult.data ?? [];
+      if (isMissingColumnError(profileResult.error, ['cover_url'])) {
+        const fallbackProfiles = await supabase
+          .from('profiles')
+          .select('id, username, display_name, avatar_url, city, state, bio');
+        if (!fallbackProfiles.error) profileRows = fallbackProfiles.data ?? [];
+      }
       const profiles = new Map(profileRows.map((row: any) => [row.id, row]));
       const me: any = profiles.get(userId);
 
@@ -181,6 +188,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         username: me.username,
         displayName: me.display_name || 'Driver',
         avatarUrl: normalizeStoredMediaUrl(me.avatar_url),
+        coverUrl: normalizeStoredMediaUrl(me.cover_url),
         city: me.city,
         state: me.state,
         bio: me.bio,
@@ -627,6 +635,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     if ('username' in values) payload.username = values.username || null;
     if ('displayName' in values) payload.display_name = values.displayName;
     if ('avatarUrl' in values) payload.avatar_url = values.avatarUrl || null;
+    if ('coverUrl' in values) payload.cover_url = values.coverUrl || null;
     if ('city' in values) payload.city = values.city || null;
     if ('state' in values) payload.state = values.state || null;
     if ('bio' in values) payload.bio = values.bio || null;
@@ -646,6 +655,16 @@ export function AppProvider({ children }: PropsWithChildren) {
     await updateProfile({ avatarUrl });
   }
 
+  async function updateCover(image: LocalImage) {
+    if (isDemo) {
+      setProfile((current) => current ? { ...current, coverUrl: image.uri } : current);
+      return;
+    }
+    if (!myUserId) throw new Error('Sessão não encontrada.');
+    const coverUrl = await uploadPublicImage(myUserId, image, 'profile-cover');
+    await updateProfile({ coverUrl });
+  }
+
   async function signOut() {
     if (supabase) await supabase.auth.signOut();
     setIsDemo(false);
@@ -660,7 +679,7 @@ export function AppProvider({ children }: PropsWithChildren) {
   const value = useMemo(() => ({
     cars, posts, events, matches, likedCarIds, profile, myUserId, isDemo, loading,
     enterDemoMode, enterRealMode, refreshRemoteData: loadRemoteData, swipeCar, likeCar,
-    togglePostLike, toggleEvent, addCar, createPost, createEvent, updateProfile, updateAvatar, signOut,
+    togglePostLike, toggleEvent, addCar, createPost, createEvent, updateProfile, updateAvatar, updateCover, signOut,
   }), [cars, posts, events, matches, likedCarIds, profile, myUserId, isDemo, loading, loadRemoteData]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

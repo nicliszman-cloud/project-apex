@@ -16,6 +16,7 @@ type PublicProfile = {
   username: string | null;
   display_name: string | null;
   avatar_url: string | null;
+  cover_url: string | null;
   city: string | null;
   state: string | null;
   bio: string | null;
@@ -54,7 +55,7 @@ export default function UserProfileScreen() {
   async function load() {
     if (!supabase || !id) return;
     const [p, c, f1, f2, mineFollow, mineBlock] = await Promise.all([
-      supabase.from('profiles').select('id, username, display_name, avatar_url, city, state, bio').eq('id', id).single(),
+      supabase.from('profiles').select('id, username, display_name, avatar_url, cover_url, city, state, bio').eq('id', id).single(),
       supabase.from('cars').select('id, make, model, model_year, current_hp, drivetrain, cover_url').eq('owner_id', id).order('created_at', { ascending: false }),
       supabase.from('follows').select('follower_id', { count: 'exact', head: true }).eq('following_id', id),
       supabase.from('follows').select('following_id', { count: 'exact', head: true }).eq('follower_id', id),
@@ -62,7 +63,26 @@ export default function UserProfileScreen() {
       myUserId ? supabase.from('blocks').select('blocked_id').eq('blocker_id', myUserId).eq('blocked_id', id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ]);
 
-    if (p.data) setProfile({ ...p.data, avatar_url: normalizeStoredMediaUrl(p.data.avatar_url) } as PublicProfile);
+    let profileRow:any = p.data;
+    const missingCover =
+      p.error?.code === '42703'
+      || p.error?.code === 'PGRST204'
+      || /cover_url/i.test(p.error?.message || '');
+
+    if (missingCover) {
+      const fallback = await supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar_url, city, state, bio')
+        .eq('id', id)
+        .single();
+      profileRow = fallback.data ? { ...fallback.data, cover_url: null } : null;
+    }
+
+    if (profileRow) setProfile({
+      ...profileRow,
+      avatar_url: normalizeStoredMediaUrl(profileRow.avatar_url),
+      cover_url: normalizeStoredMediaUrl(profileRow.cover_url),
+    } as PublicProfile);
     setCars((c.data ?? []).map((row:any)=>({
       ...row,
       cover_url:normalizeStoredMediaUrl(row.cover_url),
@@ -126,7 +146,7 @@ export default function UserProfileScreen() {
   if (!profile) return <Screen><View style={styles.center}><Text style={styles.muted}>Carregando perfil...</Text></View></Screen>;
 
   const location = [profile.city, profile.state].filter(Boolean).join(', ') || 'Brasil';
-  const hero = cars[0]?.cover_url || userPosts[0]?.image || null;
+  const hero = profile.cover_url || cars[0]?.cover_url || userPosts[0]?.image || null;
 
   return (
     <Screen>

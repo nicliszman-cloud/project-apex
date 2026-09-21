@@ -8,6 +8,7 @@ create table if not exists public.profiles (
   username text unique,
   display_name text,
   avatar_url text,
+  cover_url text,
   city text,
   state text,
   bio text,

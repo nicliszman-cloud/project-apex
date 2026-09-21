@@ -36,7 +36,7 @@ export default function GarageScreen(){
   const myEvents=useMemo(()=>events.filter((event)=>event.organizerId===myUserId),[events,myUserId]);
   const carsById=useMemo(()=>new Map(cars.map((car)=>[car.id,car])),[cars]);
   const location=[profile?.city,profile?.state].filter(Boolean).join(', ') || 'Brasil';
-  const hero=mine[0]?.image || null;
+  const hero=profile?.coverUrl || mine[0]?.image || null;
 
   useEffect(()=>{
     async function counts(){

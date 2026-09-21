@@ -5,6 +5,7 @@ export type Profile = {
   username?: string | null;
   displayName: string;
   avatarUrl?: string | null;
+  coverUrl?: string | null;
   city?: string | null;
   state?: string | null;
   bio?: string | null;

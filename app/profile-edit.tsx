@@ -13,7 +13,7 @@ import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 
 export default function ProfileEditScreen() {
-  const { profile, updateProfile, updateAvatar, signOut, isDemo } = useApp();
+  const { profile, updateProfile, updateAvatar, updateCover, signOut, isDemo } = useApp();
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [city, setCity] = useState('');
@@ -21,6 +21,7 @@ export default function ProfileEditScreen() {
   const [bio, setBio] = useState('');
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
 
   useEffect(() => {
     setDisplayName(profile?.displayName ?? '');
@@ -40,6 +41,19 @@ export default function ProfileEditScreen() {
       Alert.alert('Foto de perfil', error?.message ?? 'Não foi possível enviar a foto.');
     } finally {
       setUploadingAvatar(false);
+    }
+  }
+
+  async function chooseCover() {
+    try {
+      const selected = await pickImages(false);
+      if (!selected[0]) return;
+      setUploadingCover(true);
+      await updateCover(selected[0]);
+    } catch (error: any) {
+      Alert.alert('Capa do perfil', error?.message ?? 'Não foi possível enviar a capa.');
+    } finally {
+      setUploadingCover(false);
     }
   }
 
@@ -89,6 +103,28 @@ export default function ProfileEditScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <ScreenHeader title="Editar perfil" subtitle="Sua identidade no StreetClub" />
 
+        <View style={styles.coverSection}>
+          <Text style={styles.mediaLabel}>Capa do perfil</Text>
+          <Pressable style={styles.coverPicker} onPress={() => { void chooseCover(); }}>
+            <AppImage
+              uri={profile?.coverUrl}
+              style={StyleSheet.absoluteFill}
+              placeholder={
+                <View style={styles.coverPlaceholder}>
+                  <Ionicons name="image-outline" size={30} color={theme.colors.muted2} />
+                  <Text style={styles.coverPlaceholderText}>Escolher imagem de capa</Text>
+                </View>
+              }
+            />
+            <View style={styles.coverShade} />
+            <View style={styles.coverAction}>
+              <Ionicons name={uploadingCover ? 'hourglass-outline' : 'camera'} size={16} color={theme.colors.white} />
+              <Text style={styles.coverActionText}>{uploadingCover ? 'Enviando...' : 'Alterar capa'}</Text>
+            </View>
+          </Pressable>
+          <Text style={styles.coverHint}>A capa aparece atrás da sua foto no perfil.</Text>
+        </View>
+
         <Pressable style={styles.avatarWrap} onPress={() => { void chooseAvatar(); }}>
           <AppImage
             uri={profile?.avatarUrl}
@@ -98,7 +134,7 @@ export default function ProfileEditScreen() {
           <View style={styles.camera}>
             {uploadingAvatar ? <Ionicons name="hourglass-outline" size={16} color={theme.colors.white} /> : <Ionicons name="camera" size={16} color={theme.colors.white} />}
           </View>
-          <Text style={styles.avatarAction}>{uploadingAvatar ? 'Enviando foto...' : 'Alterar foto'}</Text>
+          <Text style={styles.avatarAction}>{uploadingAvatar ? 'Enviando foto...' : 'Alterar foto de perfil'}</Text>
         </Pressable>
 
         <View style={styles.form}>
@@ -143,7 +179,16 @@ function SettingRow({ icon, text, onPress }: { icon: React.ComponentProps<typeof
 
 const styles = StyleSheet.create({
   content: { paddingBottom: 42 },
-  avatarWrap: { alignItems: 'center', marginTop: 12 },
+  coverSection: { marginHorizontal: 16, marginTop: 12 },
+  mediaLabel: { color: theme.colors.text, fontSize: 11, fontWeight: '900', marginBottom: 8 },
+  coverPicker: { height: 150, borderRadius: theme.radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.borderStrong, backgroundColor: theme.colors.surface2 },
+  coverPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 7 },
+  coverPlaceholderText: { color: theme.colors.muted, fontSize: 10.5, fontWeight: '800' },
+  coverShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,.18)' },
+  coverAction: { position: 'absolute', right: 10, bottom: 10, height: 34, paddingHorizontal: 12, borderRadius: 17, backgroundColor: 'rgba(5,5,6,.78)', borderWidth: 1, borderColor: 'rgba(255,255,255,.18)', flexDirection: 'row', alignItems: 'center', gap: 6 },
+  coverActionText: { color: theme.colors.white, fontSize: 9.5, fontWeight: '900' },
+  coverHint: { color: theme.colors.muted2, fontSize: 8.5, marginTop: 6 },
+  avatarWrap: { alignItems: 'center', marginTop: 18 },
   avatar: { width: 96, height: 96, borderRadius: 48, borderWidth: 2, borderColor: theme.colors.borderStrong },
   avatarLetter: { color: theme.colors.text, fontWeight: '900', fontSize: 31 },
   camera: { width: 32, height: 32, borderRadius: 16, backgroundColor: theme.colors.accent, borderWidth: 3, borderColor: theme.colors.background, alignItems: 'center', justifyContent: 'center', marginTop: -25, marginLeft: 68 },
