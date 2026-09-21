@@ -1,8 +1,8 @@
 {
   "expo": {
     "name": "StreetClub",
-    "slug": "project-apex",
-    "version": "0.6.0",
+    "slug": "streetclub",
+    "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "projectapex",
@@ -28,12 +28,16 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.projectapex.app",
-      "buildNumber": "3"
+      "bundleIdentifier": "com.nicliszman.streetclub",
+      "buildNumber": "1"
     },
     "android": {
-      "package": "com.projectapex.app",
-      "versionCode": 3
+      "package": "com.nicliszman.streetclub",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "bundler": "metro"
