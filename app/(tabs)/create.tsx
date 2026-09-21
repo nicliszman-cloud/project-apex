@@ -34,6 +34,7 @@ export default function CreateScreen(){
   const [description,setDescription]=useState('');
   const [mods,setMods]=useState('');
   const [carImages,setCarImages]=useState<LocalImage[]>([]);
+  const [carImageUrls,setCarImageUrls]=useState('');
 
   const [postCaption,setPostCaption]=useState('');
   const [postImage,setPostImage]=useState<LocalImage|null>(null);
@@ -59,12 +60,13 @@ export default function CreateScreen(){
     if(!Number.isFinite(parsedYear)||parsedYear<1886||parsedYear>new Date().getFullYear()+1) return Alert.alert('Ano inválido','Confira o ano do carro.');
     setSaving(true);
     try{
+      const remoteUrls=carImageUrls.split(/\r?\n/).map((item)=>item.trim()).filter(Boolean).slice(0,6);
       await addCar({
         make:make.trim(),model:model.trim(),version:version.trim()||null,year:parsedYear,engine:engine.trim()||'Não informado',transmission:transmission.trim()||'Não informado',drivetrain,
         fuel:fuel||null,description:description.trim()||null,stockHp:Number(stockHp||0),currentHp:Number(currentHp||stockHp||0),
-        city:profile?.city||'Não informado',state:profile?.state||'BR',category,image:carImages[0]?.uri||'',
+        city:profile?.city||'Não informado',state:profile?.state||'BR',category,image:carImages[0]?.uri||remoteUrls[0]||'',
         modifications:mods.split('\n').map((item)=>item.trim()).filter(Boolean),tags:[category,'Build'],
-      },carImages);
+      },carImages,remoteUrls);
       router.replace('/(tabs)/garage');
     }catch(error:any){Alert.alert('Cadastrar carro',error?.message ?? 'Não foi possível salvar.')}finally{setSaving(false)}
   }
@@ -98,6 +100,17 @@ export default function CreateScreen(){
           <Pressable style={styles.photoPicker} onPress={async()=>{const list=await chooseImages(true);if(list.length)setCarImages(list)}}>
             {carImages.length?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoRow}>{carImages.map((image,index)=><AppImage key={image.uri+index} uri={image.uri} style={styles.preview}/>)}</ScrollView>:<View style={styles.photoEmpty}><Ionicons name="images-outline" size={30} color={theme.colors.accent}/><Text style={styles.photoTitle}>Adicionar fotos</Text><Text style={styles.photoSub}>Até 6 imagens · a primeira será a capa</Text></View>}
           </Pressable>
+          <Field
+            label="URLs das fotos (opcional)"
+            value={carImageUrls}
+            onChangeText={setCarImageUrls}
+            multiline
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            placeholder={'Cole uma URL por linha\nhttps://site.com/foto1.jpg\nhttps://site.com/foto2.jpg'}
+          />
+          <Text style={styles.urlHelp}>As imagens por URL serão copiadas para o Storage do StreetClub ao salvar.</Text>
           <Field label="Marca" value={make} onChangeText={setMake} placeholder="Nissan"/>
           <Field label="Modelo" value={model} onChangeText={setModel} placeholder="Silvia S15"/>
           <Field label="Versão" value={version} onChangeText={setVersion} placeholder="Spec-R"/>

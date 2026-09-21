@@ -1,6 +1,6 @@
 import React, { createContext, PropsWithChildren, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { demoCars, demoEvents, demoPosts } from '@/data/mock';
-import { LocalImage, uploadPublicImage } from '@/lib/media';
+import { importRemoteImage, LocalImage, uploadPublicImage } from '@/lib/media';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 import { Car, CarCategory, CarEvent, FeedPost, MatchSummary, Profile } from '@/types';
 
@@ -41,7 +41,7 @@ type AppContextValue = {
   likeCar: (id: string) => Promise<boolean>;
   togglePostLike: (id: string) => Promise<void>;
   toggleEvent: (id: string) => Promise<void>;
-  addCar: (car: NewCar, images?: LocalImage[]) => Promise<void>;
+  addCar: (car: NewCar, images?: LocalImage[], remoteUrls?: string[]) => Promise<void>;
   createPost: (post: NewPost) => Promise<void>;
   createEvent: (event: NewEvent) => Promise<void>;
   updateProfile: (values: ProfileUpdate) => Promise<void>;
@@ -355,13 +355,14 @@ export function AppProvider({ children }: PropsWithChildren) {
       : item));
   }
 
-  async function addCar(car: NewCar, images: LocalImage[] = []) {
+  async function addCar(car: NewCar, images: LocalImage[] = [], remoteUrls: string[] = []) {
     if (isDemo) {
-      const cover = images[0]?.uri || car.image;
+      const demoImages = [...images.map((item) => item.uri), ...remoteUrls].filter(Boolean).slice(0, 6);
+      const cover = demoImages[0] || car.image;
       setCars((current) => [{
         ...car,
         image: cover,
-        images: images.length ? images.map((item) => item.uri) : [cover],
+        images: demoImages.length ? demoImages : [cover],
         id: `mine-${Date.now()}`,
         ownerId: 'me',
         ownerName: profile?.displayName || 'Você',
@@ -393,20 +394,26 @@ export function AppProvider({ children }: PropsWithChildren) {
 
     if (error) throw error;
 
-    if (images.length) {
+    if (images.length || remoteUrls.length) {
       const urls: string[] = [];
-      for (let i = 0; i < images.length; i++) {
-        const url = await uploadPublicImage(myUserId, images[i], `cars/${inserted.id}`);
-        urls.push(url);
+      for (const image of images.slice(0, 6)) {
+        urls.push(await uploadPublicImage(myUserId, image, `cars/${inserted.id}`));
       }
 
-      const { error: photoError } = await supabase.from('car_photos').insert(
-        urls.map((url, position) => ({ car_id: inserted.id, url, position }))
-      );
-      if (photoError) throw photoError;
+      const remaining = Math.max(0, 6 - urls.length);
+      for (const remoteUrl of remoteUrls.slice(0, remaining)) {
+        urls.push(await importRemoteImage(myUserId, remoteUrl, `cars/${inserted.id}`));
+      }
 
-      const { error: coverError } = await supabase.from('cars').update({ cover_url: urls[0] }).eq('id', inserted.id);
-      if (coverError) throw coverError;
+      if (urls.length) {
+        const { error: photoError } = await supabase.from('car_photos').insert(
+          urls.map((url, position) => ({ car_id: inserted.id, url, position }))
+        );
+        if (photoError) throw photoError;
+
+        const { error: coverError } = await supabase.from('cars').update({ cover_url: urls[0] }).eq('id', inserted.id);
+        if (coverError) throw coverError;
+      }
     }
 
     await loadRemoteData();

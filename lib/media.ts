@@ -209,3 +209,92 @@ export async function uploadPublicImage(
 
   return publicUrl;
 }
+
+
+function remoteImageType(buffer: ArrayBuffer, contentType?: string | null, sourceUrl?: string) {
+  const bytes = new Uint8Array(buffer.slice(0, 16));
+  const declared = contentType?.split(';')[0]?.trim().toLowerCase();
+
+  if (declared?.startsWith('image/')) {
+    const subtype = declared.split('/')[1];
+    const ext = subtype === 'jpeg' ? 'jpg' : subtype === 'svg+xml' ? 'svg' : subtype;
+    return { mime: declared, ext: ext || 'jpg' };
+  }
+
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return { mime: 'image/jpeg', ext: 'jpg' };
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return { mime: 'image/png', ext: 'png' };
+  if (String.fromCharCode(...bytes.slice(0, 3)) === 'GIF') return { mime: 'image/gif', ext: 'gif' };
+  if (
+    String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' &&
+    String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP'
+  ) return { mime: 'image/webp', ext: 'webp' };
+
+  const ext = cleanExtension(sourceUrl);
+  if (ext) return { mime: ext === 'jpg' ? 'image/jpeg' : 'image/' + ext, ext };
+  return null;
+}
+
+export async function importRemoteImage(
+  userId: string,
+  remoteUrl: string,
+  folder: string
+): Promise<string> {
+  if (!supabase) throw new Error('Supabase não configurado.');
+
+  const candidates = resolveMediaCandidates(remoteUrl);
+  if (!candidates.length) throw new Error('URL de imagem vazia ou inválida.');
+
+  let lastError: unknown = null;
+
+  for (const candidate of candidates) {
+    if (!/^https?:\/\//i.test(candidate)) continue;
+
+    try {
+      const response = await fetch(candidate, {
+        method: 'GET',
+        headers: {
+          Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+        },
+      });
+
+      if (!response.ok) {
+        lastError = new Error('HTTP ' + response.status);
+        continue;
+      }
+
+      const buffer = await response.arrayBuffer();
+      if (!buffer.byteLength) {
+        lastError = new Error('Arquivo vazio');
+        continue;
+      }
+
+      const type = remoteImageType(buffer, response.headers.get('content-type'), candidate);
+      if (!type) {
+        lastError = new Error('A URL não retornou uma imagem reconhecida.');
+        continue;
+      }
+
+      const objectPath = `${userId}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${type.ext}`;
+      const { error } = await supabase.storage
+        .from('media')
+        .upload(objectPath, buffer, {
+          contentType: type.mime,
+          upsert: false,
+          cacheControl: '31536000',
+        });
+
+      if (error) throw error;
+
+      const publicUrl = supabase.storage.from('media').getPublicUrl(objectPath).data.publicUrl;
+      if (!publicUrl) throw new Error('A imagem foi importada, mas a URL pública não foi criada.');
+      return publicUrl;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw new Error(
+    'Não foi possível importar essa foto. O link pode exigir login, bloquear download externo ou apontar para uma página em vez do arquivo da imagem.' +
+    (lastError instanceof Error && lastError.message ? ' (' + lastError.message + ')' : '')
+  );
+}
