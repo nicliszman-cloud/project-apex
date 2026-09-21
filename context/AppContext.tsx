@@ -143,7 +143,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         console.warn('StreetClub data load:', table, (error as any)?.message ?? error);
       }
 
-      let carRows = carResult.data ?? [];
+      let carRows: any[] = carResult.data ?? [];
       if (carResult.error?.code === '42703') {
         const fallbackCars = await supabase
           .from('cars')

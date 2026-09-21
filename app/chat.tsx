@@ -82,20 +82,13 @@ export default function ChatScreen() {
 
     void load();
 
-    const channel = supabase
-      .channel('conversation-' + conversationId)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'direct_messages', filter: 'conversation_id=eq.' + conversationId }, (payload: any) => {
-        const row = payload.new;
-        setMessages((current) => current.some((item) => item.id === row.id) ? current : [...current, { id: row.id, senderId: row.sender_id, text: row.body, listingId: row.listing_id, createdAt: row.created_at }]);
-        if (row.sender_id !== myUserId) {
-          void supabase!.from('direct_messages').update({ read_at: new Date().toISOString() }).eq('id', row.id);
-        }
-      })
-      .subscribe();
+    const timer = setInterval(() => {
+      if (active) void load();
+    }, 3000);
 
     return () => {
       active = false;
-      void supabase!.removeChannel(channel);
+      clearInterval(timer);
     };
   }, [isDemo, conversationId, myUserId, listingId]);
 
