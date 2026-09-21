@@ -39,31 +39,41 @@ export default function PostDetailScreen() {
   async function loadComments() {
     if (!supabase || !id) return;
 
-    let result = await supabase
+    const threadedResult = await supabase
       .from('comments')
       .select('id, author_id, body, created_at, parent_comment_id')
       .eq('post_id', id)
       .order('created_at', { ascending: true });
 
     const missingParentColumn =
-      result.error?.code === '42703'
-      || result.error?.code === 'PGRST204'
-      || /parent_comment_id/i.test(result.error?.message || '');
+      threadedResult.error?.code === '42703'
+      || threadedResult.error?.code === 'PGRST204'
+      || /parent_comment_id/i.test(threadedResult.error?.message || '');
+
+    let rows: any[] = [];
+    let loadError: any = threadedResult.error;
 
     if (missingParentColumn) {
-      result = await supabase
+      const legacyResult = await supabase
         .from('comments')
         .select('id, author_id, body, created_at')
         .eq('post_id', id)
         .order('created_at', { ascending: true });
+
+      rows = (legacyResult.data ?? []).map((row: any) => ({
+        ...row,
+        parent_comment_id: null,
+      }));
+      loadError = legacyResult.error;
+    } else {
+      rows = threadedResult.data ?? [];
     }
 
-    if (result.error) {
-      console.warn('StreetClub comments:', result.error.message);
+    if (loadError) {
+      console.warn('StreetClub comments:', loadError.message);
       return;
     }
 
-    const rows = result.data ?? [];
     const authorIds = [...new Set(rows.map((row: any) => row.author_id))];
     const { data: profiles } = authorIds.length
       ? await supabase.from('profiles').select('id, display_name, username, avatar_url').in('id', authorIds)
