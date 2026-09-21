@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   coverPicker: { height: 150, borderRadius: theme.radius.lg, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.borderStrong, backgroundColor: theme.colors.surface2 },
   coverPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 7 },
   coverPlaceholderText: { color: theme.colors.muted, fontSize: 10.5, fontWeight: '800' },
-  coverShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,.18)' },
+  coverShade: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0,0,0,.18)' },
   coverAction: { position: 'absolute', right: 10, bottom: 10, height: 34, paddingHorizontal: 12, borderRadius: 17, backgroundColor: 'rgba(5,5,6,.78)', borderWidth: 1, borderColor: 'rgba(255,255,255,.18)', flexDirection: 'row', alignItems: 'center', gap: 6 },
   coverActionText: { color: theme.colors.white, fontSize: 9.5, fontWeight: '900' },
   coverHint: { color: theme.colors.muted2, fontSize: 8.5, marginTop: 6 },
