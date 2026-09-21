@@ -6,39 +6,38 @@
 - autenticação preparada
 - schema inicial
 
-## v0.2 — social backend real
+## v0.2 — backend social
 - Auth e perfis persistentes
-- avatar via Storage
-- garagem persistente
-- ficha técnica completa
-- até 6 fotos por carro
-- feed e likes reais
-- eventos e presença reais
-- swipe persistente
-- Garage Match mútuo
-- lista de matches
-- chat persistente + Realtime
+- Storage
+- garagem e fotos
+- feed/likes
+- eventos/presença
+- swipes/matches
+- chat Realtime
 
-## Próxima versão
-- comentários em posts
-- seguir pessoas e carros
-- filtros de Discover por marca/categoria/distância
-- edição/exclusão de carros, posts e eventos
-- denúncias/bloqueios na interface
+## v0.3 — comunidade e peças
+- perfil público
+- seguir usuários
+- comentários
+- notificações internas
+- bloquear/denunciar
 - recuperação de senha
+- exclusão de conta
+- filtros no Discover
+- editar/excluir conteúdo próprio
+- marketplace: vendo/troco/procuro
+- RLS reforçado para bloqueios
+
+## Próxima etapa pré-lançamento
 - notificações push
-
-## Marketplace
-- vendo / troco / procuro
-- compatibilidade de peças
-- favoritos e chat de negociação
-- oficinas e marcas verificadas
-
-## Preparação de lançamento
-- política de privacidade e LGPD
-- termos e regras da comunidade
-- exclusão de conta e exportação de dados
-- painel/processo de moderação
+- painel de moderação/admin
+- termos e política de privacidade/LGPD
+- exportação de dados
+- busca de usuários e comunidades/clubes
+- favoritos de peças
+- negociação direta por anúncio
+- mapa real de meets
+- localização por distância opcional
 - analytics/crash reporting
 - testes E2E
 - ícones/splash definitivos

@@ -1,26 +1,52 @@
 # Project Apex
 
-Rede social mobile para carros esportivos e performance: **Discover + Garage + Feed + Meets + Garage Match + Chat**.
+Rede social mobile para carros esportivos e performance: **Discover + Garage + Feed + Meets + Garage Match + Chat + Peças**.
 
-## Estado atual — v0.2
+## Estado atual — v0.3
 
+### Conta e perfil
 - autenticação real com Supabase
-- perfil persistente e foto de perfil
-- garagem real
-- cadastro técnico de carro
+- perfil persistente, avatar e bio
+- perfil público
+- seguir usuários
+- bloquear e denunciar
+- recuperação de senha por deep link
+- exclusão da própria conta
+
+### Garagem
+- cadastro técnico completo
 - até 6 fotos por carro via Supabase Storage
-- galeria no perfil do carro
-- feed real com criação de posts e curtidas
-- criação de eventos e confirmação de presença
-- swipe real: curtir, passar e salvar
-- Garage Match quando a curtida é mútua
-- lista de matches
+- galeria do carro
+- edição e exclusão do próprio carro
+
+### Social
+- feed real
+- likes persistentes
+- comentários
+- edição/exclusão do próprio post
+- notificações internas de follow, comentário e match
+- filtros no Discover por categoria, marca/modelo e potência
+- bloqueios aplicados também por RLS
+- Garage Match por curtida mútua
 - chat persistente com Supabase Realtime
-- modo demo separado da conta real
-- Row Level Security no banco e políticas de Storage
+
+### Eventos
+- criação de meets/eventos
+- confirmação de presença
+- tela de detalhes
+- edição básica e exclusão pelo organizador
+
+### Marketplace inicial
+- vendo / troco / procuro
+- foto da peça
+- preço
+- categoria
+- compatibilidade
+- cidade/UF
+- associação opcional a um carro
+- busca e filtros
 
 ## Stack
-
 - Expo SDK 57 / React Native 0.86
 - Expo Router
 - TypeScript
@@ -32,36 +58,36 @@ Rede social mobile para carros esportivos e performance: **Discover + Garage + F
 ```bash
 git pull origin main
 npm install
-npx expo start
+npx expo start -c
 ```
 
 ## Banco de dados
 
-A base inicial está em:
+Quem já executou o schema inicial e a migration v0.2 deve executar apenas:
 
 ```text
-supabase/schema.sql
+supabase/migrations/20260921_apex_community_marketplace.sql
 ```
 
-A evolução social/Storage da v0.2 está em:
+no SQL Editor do Supabase.
+
+## Recuperação de senha
+
+Em **Supabase → Authentication → URL Configuration**, adicione aos Redirect URLs:
 
 ```text
-supabase/migrations/20260921_apex_social.sql
+projectapex://reset-password
 ```
-
-Em um projeto que já recebeu o `schema.sql`, execute somente a migration acima no **Supabase SQL Editor** antes de abrir a v0.2.
 
 ## Variáveis locais
-
-Crie `.env` a partir de `.env.example`:
 
 ```env
 EXPO_PUBLIC_SUPABASE_URL=https://SEU-PROJETO.supabase.co
 EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=SUA_PUBLISHABLE_KEY
 ```
 
-Nunca coloque uma service-role key no aplicativo.
+Nunca use uma service-role key no aplicativo cliente.
 
-## Próximas etapas para produção
+## Ainda necessário antes de lançamento público
 
-Antes de publicar nas lojas ainda faltam itens de produto/operação, como recuperação de senha, notificações push, comentários, filtros avançados, exclusão de conta/dados, moderação operacional, termos, política de privacidade, testes E2E e builds de produção.
+O núcleo do MVP está funcional, mas publicação comercial ainda exige trabalho operacional e de loja: política de privacidade/LGPD, termos/regras da comunidade, processo/painel de moderação, notificações push, testes E2E, analytics/crash reporting, assets definitivos, builds de produção e submissão às lojas.

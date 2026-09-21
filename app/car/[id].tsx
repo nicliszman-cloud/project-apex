@@ -1,19 +1,34 @@
-import { Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Dimensions, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { useApp } from '@/context/AppContext';
+import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 
 const WIDTH = Dimensions.get('window').width;
 
 export default function CarProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { cars } = useApp();
+  const { cars, myUserId, refreshRemoteData } = useApp();
   const car = cars.find((item) => item.id === id) ?? cars[0];
 
   if (!car) return <Screen><View style={styles.missing}><Text style={styles.empty}>Carro não encontrado.</Text></View></Screen>;
 
   const gallery = car.images?.length ? car.images : [car.image];
+  const mine = car.ownerId === myUserId;
+
+  function remove() {
+    if (!supabase || !mine) return;
+    Alert.alert('Excluir carro', 'O carro, fotos vinculadas e referências associadas poderão ser removidos.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Excluir', style: 'destructive', onPress: async () => {
+        const { error } = await supabase!.from('cars').delete().eq('id', car.id);
+        if (error) return Alert.alert('Erro', error.message);
+        await refreshRemoteData();
+        router.replace('/(tabs)/garage');
+      }},
+    ]);
+  }
 
   return (
     <Screen>
@@ -29,7 +44,7 @@ export default function CarProfileScreen() {
         <View style={styles.body}>
           <Text style={styles.kicker}>{car.category} • {car.city}, {car.state}</Text>
           <Text style={styles.title}>{car.make} {car.model}</Text>
-          <Text style={styles.owner}>por {car.ownerName}</Text>
+          <Pressable onPress={() => router.push('/user/' + car.ownerId)}><Text style={styles.owner}>por {car.ownerName}</Text></Pressable>
 
           <View style={styles.metrics}>
             <View><Text style={styles.number}>{car.currentHp}</Text><Text style={styles.label}>CV ATUAL</Text></View>
@@ -45,6 +60,11 @@ export default function CarProfileScreen() {
 
           <Text style={styles.section}>Build</Text>
           {car.modifications.length ? car.modifications.map((m) => <View key={m} style={styles.mod}><Text style={styles.dot}>•</Text><Text style={styles.modText}>{m}</Text></View>) : <Text style={styles.empty}>Nenhuma modificação cadastrada ainda.</Text>}
+
+          {mine && <View style={styles.ownerActions}>
+            <Pressable style={styles.editButton} onPress={() => router.push('/car-edit/' + car.id)}><Text style={styles.editText}>Editar carro</Text></Pressable>
+            <Pressable style={styles.deleteButton} onPress={remove}><Text style={styles.deleteText}>Excluir</Text></Pressable>
+          </View>}
         </View>
       </ScrollView>
     </Screen>
@@ -60,7 +80,7 @@ const styles = StyleSheet.create({
   body: { padding: 20 },
   kicker: { color: theme.colors.accent, fontWeight: '900', letterSpacing: 1.3, fontSize: 11 },
   title: { color: 'white', fontSize: 31, fontWeight: '900', marginTop: 5 },
-  owner: { color: theme.colors.muted, marginTop: 5 },
+  owner: { color: theme.colors.accent, marginTop: 5, fontWeight: '800' },
   metrics: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 18, paddingVertical: 17, marginTop: 20 },
   number: { color: 'white', fontWeight: '900', fontSize: 19, textAlign: 'center' },
   label: { color: theme.colors.muted, fontWeight: '800', fontSize: 9, marginTop: 3 },
@@ -72,5 +92,10 @@ const styles = StyleSheet.create({
   dot: { color: theme.colors.accent, fontSize: 22, marginRight: 9 },
   modText: { color: '#E2E4E7', marginTop: 4 },
   empty: { color: theme.colors.muted },
+  ownerActions: { flexDirection: 'row', gap: 10, marginTop: 26 },
+  editButton: { flex: 1, backgroundColor: theme.colors.accent, padding: 14, borderRadius: 14, alignItems: 'center' },
+  editText: { color: 'white', fontWeight: '900' },
+  deleteButton: { borderWidth: 1, borderColor: '#68343A', paddingHorizontal: 18, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  deleteText: { color: '#F07880', fontWeight: '900' },
   missing: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

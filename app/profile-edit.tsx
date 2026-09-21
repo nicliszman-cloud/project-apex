@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { useApp } from '@/context/AppContext';
 import { pickImages } from '@/lib/media';
+import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 
 export default function ProfileEditScreen() {
@@ -41,13 +42,7 @@ export default function ProfileEditScreen() {
     if (!displayName.trim()) return Alert.alert('Nome obrigatório', 'Informe como você quer aparecer no APEX.');
     setSaving(true);
     try {
-      await updateProfile({
-        displayName: displayName.trim(),
-        username: username.trim(),
-        city: city.trim(),
-        state: state.trim().toUpperCase(),
-        bio: bio.trim(),
-      });
+      await updateProfile({ displayName: displayName.trim(), username: username.trim(), city: city.trim(), state: state.trim().toUpperCase(), bio: bio.trim() });
       Alert.alert('Perfil salvo', isDemo ? 'Atualizado no modo demo.' : 'As informações foram salvas no Supabase.');
       router.replace('/(tabs)/garage');
     } catch (error: any) {
@@ -60,6 +55,19 @@ export default function ProfileEditScreen() {
   async function logout() {
     await signOut();
     router.replace('/auth');
+  }
+
+  function deleteAccount() {
+    if (isDemo || !supabase) return;
+    Alert.alert('Excluir conta', 'Isso apagará sua conta e os dados vinculados. Esta ação não pode ser desfeita.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Excluir definitivamente', style: 'destructive', onPress: async () => {
+        const { error } = await supabase!.rpc('delete_my_account');
+        if (error) return Alert.alert('Não foi possível excluir', error.message);
+        await signOut();
+        router.replace('/auth');
+      }},
+    ]);
   }
 
   return (
@@ -79,13 +87,14 @@ export default function ProfileEditScreen() {
         <Text style={styles.label}>Bio</Text><TextInput style={[styles.input, styles.bio]} value={bio} onChangeText={setBio} multiline maxLength={240} placeholder="Conte um pouco sobre seu gosto por carros..." placeholderTextColor={theme.colors.muted}/>
         <Pressable style={styles.save} onPress={save} disabled={saving}><Text style={styles.saveText}>{saving ? 'Salvando...' : 'Salvar perfil'}</Text></Pressable>
         <Pressable style={styles.logout} onPress={logout}><Text style={styles.logoutText}>{isDemo ? 'Sair do modo demo' : 'Sair da conta'}</Text></Pressable>
+        {!isDemo && <Pressable style={styles.delete} onPress={deleteAccount}><Text style={styles.deleteText}>Excluir minha conta</Text></Pressable>}
       </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 20, paddingBottom: 40 },
+  content: { padding: 20, paddingBottom: 50 },
   top: { flexDirection: 'row', alignItems: 'center' },
   back: { color: 'white', fontSize: 38, marginRight: 12, marginTop: -4 },
   title: { color: 'white', fontSize: 29, fontWeight: '900' },
@@ -101,6 +110,8 @@ const styles = StyleSheet.create({
   bio: { minHeight: 110, textAlignVertical: 'top' },
   save: { backgroundColor: theme.colors.accent, padding: 16, borderRadius: 15, alignItems: 'center', marginTop: 24 },
   saveText: { color: 'white', fontWeight: '900', fontSize: 15 },
-  logout: { borderWidth: 1, borderColor: '#513034', padding: 15, borderRadius: 15, alignItems: 'center', marginTop: 12 },
-  logoutText: { color: '#F07880', fontWeight: '900' },
+  logout: { borderWidth: 1, borderColor: theme.colors.border, padding: 15, borderRadius: 15, alignItems: 'center', marginTop: 12 },
+  logoutText: { color: '#D7DADE', fontWeight: '900' },
+  delete: { borderWidth: 1, borderColor: '#68343A', padding: 15, borderRadius: 15, alignItems: 'center', marginTop: 12 },
+  deleteText: { color: '#F07880', fontWeight: '900' },
 });

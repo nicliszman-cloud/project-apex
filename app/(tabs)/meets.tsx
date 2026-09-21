@@ -24,36 +24,25 @@ export default function MeetsScreen() {
       <View style={styles.filters}>{['Próximos', 'Track', 'JDM', 'Euro'].map((x, i) => <View key={x} style={[styles.filter, i === 0 && styles.filterOn]}><Text style={[styles.filterText, i === 0 && { color: 'white' }]}>{x}</Text></View>)}</View>
 
       {events.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>📍</Text>
-          <Text style={styles.emptyTitle}>Nenhum evento cadastrado ainda</Text>
-          <Text style={styles.emptyText}>Crie o primeiro meet, track day ou exposição da comunidade.</Text>
-          <Pressable style={styles.emptyButton} onPress={() => router.push('/(tabs)/create')}><Text style={styles.emptyButtonText}>Criar evento</Text></Pressable>
-        </View>
+        <View style={styles.empty}><Text style={styles.emptyIcon}>📍</Text><Text style={styles.emptyTitle}>Nenhum evento cadastrado ainda</Text><Text style={styles.emptyText}>Crie o primeiro meet, track day ou exposição da comunidade.</Text><Pressable style={styles.emptyButton} onPress={() => router.push('/(tabs)/create')}><Text style={styles.emptyButtonText}>Criar evento</Text></Pressable></View>
       ) : (
         <FlatList
           data={events}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <Pressable style={styles.card} onPress={() => router.push('/event/' + item.id)}>
               <ImageBackground source={{ uri: item.image }} style={styles.photo} imageStyle={styles.photoImg}>
-                <View style={styles.shade}/>
-                <View style={styles.badge}><Text style={styles.badgeText}>{item.category}</Text></View>
+                <View style={styles.shade}/><View style={styles.badge}><Text style={styles.badgeText}>{item.category}</Text></View>
               </ImageBackground>
               <View style={styles.body}>
                 <Text style={styles.date}>{item.date}</Text>
                 <Text style={styles.eventTitle}>{item.title}</Text>
                 <Text style={styles.place}>📍 {item.place} • {item.city}</Text>
-                {!!item.description && <Text style={styles.description}>{item.description}</Text>}
-                <View style={styles.footer}>
-                  <Text style={styles.people}>{item.attendees} confirmados</Text>
-                  <Pressable style={[styles.join, item.joined && styles.joined]} onPress={() => { void attendance(item.id); }}>
-                    <Text style={styles.joinText}>{item.joined ? 'Confirmado ✓' : 'Eu vou'}</Text>
-                  </Pressable>
-                </View>
+                {!!item.description && <Text style={styles.description} numberOfLines={2}>{item.description}</Text>}
+                <View style={styles.footer}><Text style={styles.people}>{item.attendees} confirmados</Text><Pressable style={[styles.join, item.joined && styles.joined]} onPress={() => { void attendance(item.id); }}><Text style={styles.joinText}>{item.joined ? 'Confirmado ✓' : 'Eu vou'}</Text></Pressable></View>
               </View>
-            </View>
+            </Pressable>
           )}
         />
       )}

@@ -27,6 +27,12 @@ export default function GarageScreen() {
           <View><Text style={styles.statNum}>—</Text><Text style={styles.statLabel}>meets</Text></View>
         </View>
 
+        <View style={styles.quickRow}>
+          <Pressable style={styles.quick} onPress={() => router.push('/marketplace')}><Text style={styles.quickIcon}>🔧</Text><Text style={styles.quickText}>Peças</Text></Pressable>
+          <Pressable style={styles.quick} onPress={() => router.push('/notifications')}><Text style={styles.quickIcon}>🔔</Text><Text style={styles.quickText}>Notificações</Text></Pressable>
+          <Pressable style={styles.quick} onPress={() => myUserId && router.push('/user/' + myUserId)}><Text style={styles.quickIcon}>👤</Text><Text style={styles.quickText}>Perfil público</Text></Pressable>
+        </View>
+
         <View style={styles.sectionHead}><Text style={styles.sectionTitle}>Minha garagem</Text><Pressable onPress={() => router.push('/(tabs)/create')}><Text style={styles.add}>＋ Adicionar</Text></Pressable></View>
 
         {loading ? <Text style={styles.emptyText}>Carregando sua garagem...</Text> : mine.length === 0 ? (
@@ -57,6 +63,10 @@ const styles = StyleSheet.create({
   stats: { marginTop: 22, backgroundColor: theme.colors.surface, borderRadius: 18, borderWidth: 1, borderColor: theme.colors.border, flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 16 },
   statNum: { color: 'white', fontWeight: '900', fontSize: 19, textAlign: 'center' },
   statLabel: { color: theme.colors.muted, fontSize: 11, marginTop: 3 },
+  quickRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  quick: { flex: 1, backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, borderRadius: 15, padding: 12, alignItems: 'center' },
+  quickIcon: { fontSize: 20 },
+  quickText: { color: 'white', fontWeight: '800', fontSize: 10, marginTop: 5, textAlign: 'center' },
   sectionHead: { flexDirection: 'row', alignItems: 'center', marginTop: 28, marginBottom: 12 },
   sectionTitle: { color: 'white', fontSize: 19, fontWeight: '900' },
   add: { color: theme.colors.accent, fontWeight: '900', marginLeft: 'auto' },

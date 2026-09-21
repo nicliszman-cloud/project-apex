@@ -12,7 +12,7 @@ export default function FeedScreen() {
       <View style={styles.header}>
         <Text style={styles.logo}>APEX</Text>
         <View style={styles.headerActions}>
-          <Text style={styles.headerIcon}>🔔</Text>
+          <Pressable onPress={() => router.push('/notifications')}><Text style={styles.headerIcon}>🔔</Text></Pressable>
           <Pressable onPress={() => router.push('/matches')}><Text style={styles.headerIcon}>💬</Text></Pressable>
         </View>
       </View>
@@ -31,21 +31,23 @@ export default function FeedScreen() {
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
             <View style={styles.post}>
-              <View style={styles.author}>
+              <Pressable style={styles.author} onPress={() => item.authorId && router.push('/user/' + item.authorId)}>
                 {item.authorAvatar ? <Image source={{ uri: item.authorAvatar }} style={styles.avatarImage} /> : <View style={styles.avatar}><Text style={styles.avatarText}>{item.author[0]}</Text></View>}
                 <View><Text style={styles.authorName}>{item.author}</Text><Text style={styles.carName}>{item.carName}</Text></View>
                 <Text style={styles.more}>•••</Text>
-              </View>
-              <Image source={{ uri: item.image }} style={styles.image}/>
+              </Pressable>
+
+              <Pressable onPress={() => router.push('/post/' + item.id)}><Image source={{ uri: item.image }} style={styles.image}/></Pressable>
+
               <View style={styles.postBody}>
                 <View style={styles.actions}>
                   <Pressable onPress={() => { void togglePostLike(item.id); }}><Text style={[styles.action, item.liked && { color: theme.colors.accent }]}>{item.liked ? '♥' : '♡'}</Text></Pressable>
-                  <Text style={styles.action}>◯</Text>
+                  <Pressable onPress={() => router.push('/post/' + item.id)}><Text style={styles.action}>◯</Text></Pressable>
                   <Text style={styles.action}>↗</Text>
                   <Text style={[styles.action, { marginLeft: 'auto' }]}>☆</Text>
                 </View>
                 <Text style={styles.likes}>{item.likes.toLocaleString('pt-BR')} curtidas</Text>
-                <Text style={styles.caption}><Text style={{ fontWeight: '900' }}>{item.author} </Text>{item.caption}</Text>
+                <Pressable onPress={() => router.push('/post/' + item.id)}><Text style={styles.caption}><Text style={{ fontWeight: '900' }}>{item.author} </Text>{item.caption}</Text><Text style={styles.commentsLink}>Ver comentários</Text></Pressable>
                 {isDemo && <Text style={styles.demo}>conteúdo demo</Text>}
               </View>
             </View>
@@ -76,6 +78,7 @@ const styles = StyleSheet.create({
   action: { color: 'white', fontSize: 27 },
   likes: { color: 'white', fontWeight: '900', marginTop: 5 },
   caption: { color: '#E7E8EA', lineHeight: 20, marginTop: 6 },
+  commentsLink: { color: theme.colors.muted, fontSize: 11, marginTop: 6 },
   demo: { color: '#F5C451', fontSize: 10, fontWeight: '900', marginTop: 8 },
   empty: { margin: 18, padding: 28, backgroundColor: theme.colors.surface, borderRadius: 22, borderWidth: 1, borderColor: theme.colors.border, alignItems: 'center' },
   emptyIcon: { fontSize: 40 },
