@@ -635,13 +635,29 @@ export function AppProvider({ children }: PropsWithChildren) {
     if ('username' in values) payload.username = values.username || null;
     if ('displayName' in values) payload.display_name = values.displayName;
     if ('avatarUrl' in values) payload.avatar_url = values.avatarUrl || null;
-    if ('coverUrl' in values) payload.cover_url = values.coverUrl || null;
     if ('city' in values) payload.city = values.city || null;
     if ('state' in values) payload.state = values.state || null;
     if ('bio' in values) payload.bio = values.bio || null;
 
-    const { error } = await supabase.from('profiles').update(payload).eq('id', myUserId);
-    if (error) throw error;
+    if (Object.keys(payload).length) {
+      const { error } = await supabase.from('profiles').update(payload).eq('id', myUserId);
+      if (error) throw error;
+    }
+
+    if ('coverUrl' in values) {
+      const { error: coverError } = await supabase
+        .from('profiles')
+        .update({ cover_url: values.coverUrl || null })
+        .eq('id', myUserId);
+
+      if (coverError) {
+        if (isMissingColumnError(coverError, ['cover_url'])) {
+          throw new Error('A coluna de capa ainda não foi ativada no Supabase. Execute a migration streetclub_profile_cover_hotfix.sql no SQL Editor e tente novamente.');
+        }
+        throw coverError;
+      }
+    }
+
     await loadRemoteData();
   }
 
