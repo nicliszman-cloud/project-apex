@@ -55,6 +55,7 @@ export function SocialPostCard({
       <Pressable onPress={() => router.push('/post/' + post.id)}>
         <AppImage
           uri={post.image}
+          fallbackUri={car?.image}
           style={styles.image}
           placeholder={<Ionicons name="image-outline" size={42} color={theme.colors.muted2} />}
           accessibilityLabel={'Foto publicada por ' + post.author}

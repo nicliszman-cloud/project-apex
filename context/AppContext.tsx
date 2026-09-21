@@ -10,7 +10,8 @@ type ProfileUpdate = Partial<Pick<Profile, 'username' | 'displayName' | 'avatarU
 type NewPost = {
   caption: string;
   carId?: string | null;
-  image: LocalImage;
+  image?: LocalImage | null;
+  imageUrl?: string | null;
 };
 
 type NewEvent = {
@@ -22,6 +23,8 @@ type NewEvent = {
   state: string;
   startsAt: string;
   image?: LocalImage | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 type AppContextValue = {
@@ -256,6 +259,14 @@ export function AppProvider({ children }: PropsWithChildren) {
     }
 
     loadRemoteData().catch(() => setLoading(false));
+
+    const postChannel = supabase
+      .channel('streetclub-posts-feed')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => {
+        void loadRemoteData();
+      })
+      .subscribe();
+
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user.id) {
         setIsDemo(false);
@@ -270,7 +281,10 @@ export function AppProvider({ children }: PropsWithChildren) {
       }
     });
 
-    return () => data.subscription.unsubscribe();
+    return () => {
+      data.subscription.unsubscribe();
+      void supabase.removeChannel(postChannel);
+    };
   }, [loadRemoteData, isDemo]);
 
   function enterDemoMode() {
@@ -421,21 +435,38 @@ export function AppProvider({ children }: PropsWithChildren) {
   }
 
   async function createPost(post: NewPost) {
+    const externalUrl = post.imageUrl?.trim() || null;
+    if (!post.image && !externalUrl) throw new Error('Adicione uma foto ou URL para publicar.');
+
     if (isDemo) {
+      const image = post.image?.uri || resolveMediaUrl(externalUrl) || externalUrl || '';
       setPosts((current) => [{
         id: `demo-post-${Date.now()}`,
+        authorId: 'me',
         author: profile?.displayName || 'Você',
+        authorUsername: profile?.username || null,
+        authorAvatar: profile?.avatarUrl || null,
+        authorCity: profile?.city || null,
+        authorState: profile?.state || null,
         carName: cars.find((car) => car.id === post.carId)?.model || 'Projeto',
-        image: post.image.uri,
+        carId: post.carId || null,
+        image,
         caption: post.caption,
         likes: 0,
+        comments: 0,
         liked: false,
+        createdAt: new Date().toISOString(),
       }, ...current]);
       return;
     }
     if (!supabase || !myUserId) throw new Error('Faça login para publicar.');
 
-    const mediaUrl = await uploadPublicImage(myUserId, post.image, 'posts');
+    const mediaUrl = post.image
+      ? await uploadPublicImage(myUserId, post.image, 'posts')
+      : (resolveMediaUrl(externalUrl) || externalUrl);
+
+    if (!mediaUrl) throw new Error('A imagem da publicação não é válida.');
+
     const { error } = await supabase.from('posts').insert({
       author_id: myUserId,
       car_id: post.carId || null,
@@ -464,7 +495,7 @@ export function AppProvider({ children }: PropsWithChildren) {
     if (!supabase || !myUserId) throw new Error('Faça login para criar um evento.');
 
     const coverUrl = event.image ? await uploadPublicImage(myUserId, event.image, 'events') : null;
-    const { data: inserted, error } = await supabase.from('events').insert({
+    const basePayload = {
       organizer_id: myUserId,
       title: event.title,
       description: event.description || null,
@@ -474,8 +505,21 @@ export function AppProvider({ children }: PropsWithChildren) {
       venue_name: event.venueName,
       starts_at: event.startsAt,
       cover_url: coverUrl,
+    };
+
+    let result = await supabase.from('events').insert({
+      ...basePayload,
+      latitude: event.latitude ?? null,
+      longitude: event.longitude ?? null,
     }).select('id').single();
+
+    if (result.error?.code === '42703') {
+      result = await supabase.from('events').insert(basePayload).select('id').single();
+    }
+
+    const { data: inserted, error } = result;
     if (error) throw error;
+    if (!inserted) throw new Error('Não foi possível criar o evento.');
 
     const { error: attendeeError } = await supabase.from('event_attendees').insert({
       event_id: inserted.id,

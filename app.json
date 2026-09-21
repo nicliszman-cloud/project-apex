@@ -2,7 +2,7 @@
   "expo": {
     "name": "StreetClub",
     "slug": "project-apex",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "projectapex",
@@ -15,6 +15,12 @@
           "cameraPermission": "O StreetClub acessa sua câmera para você fotografar carros, projetos, eventos e peças.",
           "microphonePermission": false
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Permita que o StreetClub use sua localização enquanto o app estiver aberto para mostrar sua posição e eventos próximos no mapa."
+        }
       ]
     ],
     "experiments": {
@@ -23,11 +29,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.projectapex.app",
-      "buildNumber": "2"
+      "buildNumber": "3"
     },
     "android": {
       "package": "com.projectapex.app",
-      "versionCode": 2
+      "versionCode": 3
     },
     "web": {
       "bundler": "metro"

@@ -13,9 +13,10 @@ type CommentItem = { id: string; authorId: string; author: string; avatar: strin
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { posts, myUserId, togglePostLike, refreshRemoteData } = useApp();
+  const { posts, cars, myUserId, togglePostLike, refreshRemoteData } = useApp();
   const insets = useSafeAreaInsets();
   const post = posts.find((item) => item.id === id);
+  const linkedCar = post?.carId ? cars.find((car) => car.id === post.carId) : undefined;
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [text, setText] = useState('');
   const [editing, setEditing] = useState(false);
@@ -113,7 +114,7 @@ export default function PostDetailScreen() {
                 </View>
               </Pressable>
 
-              <AppImage uri={post.image} style={styles.image} placeholder={<Ionicons name="image-outline" size={42} color={theme.colors.muted2} />} />
+              <AppImage uri={post.image} fallbackUri={linkedCar?.image} style={styles.image} placeholder={<Ionicons name="image-outline" size={42} color={theme.colors.muted2} />} />
 
               <View style={styles.actionRow}>
                 <Pressable style={styles.action} onPress={() => { void togglePostLike(post.id); }}>

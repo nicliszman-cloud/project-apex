@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import * as Location from 'expo-location';
 import { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
@@ -38,6 +39,7 @@ export default function CreateScreen(){
 
   const [postCaption,setPostCaption]=useState('');
   const [postImage,setPostImage]=useState<LocalImage|null>(null);
+  const [postImageUrl,setPostImageUrl]=useState('');
   const [postCarId,setPostCarId]=useState<string|null>(null);
   const myCars=useMemo(()=>cars.filter((car)=>car.ownerId===myUserId),[cars,myUserId]);
 
@@ -49,6 +51,9 @@ export default function CreateScreen(){
   const [eventState,setEventState]=useState(profile?.state||'');
   const [eventStarts,setEventStarts]=useState('');
   const [eventImage,setEventImage]=useState<LocalImage|null>(null);
+  const [eventLatitude,setEventLatitude]=useState<number|null>(null);
+  const [eventLongitude,setEventLongitude]=useState<number|null>(null);
+  const [locatingEvent,setLocatingEvent]=useState(false);
 
   async function chooseImages(multiple:boolean){
     try{return await pickImages(multiple);}catch(error:any){Alert.alert('Fotos',error?.message ?? 'Não foi possível abrir a galeria.');return []}
@@ -72,11 +77,45 @@ export default function CreateScreen(){
   }
 
   async function savePost(){
-    if(!postImage) return Alert.alert('Escolha uma foto','A publicação precisa de uma imagem.');
+    if(!postImage && !postImageUrl.trim()) return Alert.alert('Escolha uma foto','Adicione uma foto da galeria ou cole uma URL de imagem.');
     if(!postCaption.trim()) return Alert.alert('Legenda','Escreva uma legenda.');
     setSaving(true);
-    try{await createPost({caption:postCaption.trim(),carId:postCarId,image:postImage});router.replace('/(tabs)/feed');}
+    try{
+      await createPost({
+        caption:postCaption.trim(),
+        carId:postCarId,
+        image:postImage,
+        imageUrl:postImage ? null : postImageUrl.trim(),
+      });
+      router.replace('/(tabs)/feed');
+    }
     catch(error:any){Alert.alert('Publicar',error?.message ?? 'Não foi possível publicar.')}finally{setSaving(false)}
+  }
+
+  async function locateEvent(){
+    setLocatingEvent(true);
+    try{
+      const permission=await Location.requestForegroundPermissionsAsync();
+      if(permission.status!=='granted') return Alert.alert('Localização','Permita o acesso à localização para posicionar o evento no mapa.');
+
+      const address=[eventVenue,eventCity,eventState,'Brasil'].filter(Boolean).join(', ');
+      if(address.trim()){
+        const results=await Location.geocodeAsync(address);
+        if(results[0]){
+          setEventLatitude(results[0].latitude);
+          setEventLongitude(results[0].longitude);
+          return;
+        }
+      }
+
+      const current=await Location.getCurrentPositionAsync({accuracy:Location.Accuracy.Balanced});
+      setEventLatitude(current.coords.latitude);
+      setEventLongitude(current.coords.longitude);
+    }catch(error:any){
+      Alert.alert('Mapa',error?.message ?? 'Não foi possível localizar este endereço.');
+    }finally{
+      setLocatingEvent(false);
+    }
   }
 
   async function saveEvent(){
@@ -84,7 +123,37 @@ export default function CreateScreen(){
     if(!eventTitle.trim()||!eventVenue.trim()||!eventCity.trim()||!eventState.trim()) return Alert.alert('Faltam informações','Preencha título, local, cidade e UF.');
     if(!eventStarts.trim()||Number.isNaN(parsed.getTime())) return Alert.alert('Data inválida','Use o formato 2026-10-04 19:00.');
     setSaving(true);
-    try{await createEvent({title:eventTitle.trim(),description:eventDescription.trim(),category:eventCategory.trim()||'Meet',venueName:eventVenue.trim(),city:eventCity.trim(),state:eventState.trim().toUpperCase(),startsAt:parsed.toISOString(),image:eventImage});router.replace('/(tabs)/meets');}
+    try{
+      let latitude=eventLatitude;
+      let longitude=eventLongitude;
+
+      if(latitude==null||longitude==null){
+        try{
+          const permission=await Location.requestForegroundPermissionsAsync();
+          if(permission.status==='granted'){
+            const results=await Location.geocodeAsync([eventVenue,eventCity,eventState,'Brasil'].join(', '));
+            if(results[0]){
+              latitude=results[0].latitude;
+              longitude=results[0].longitude;
+            }
+          }
+        }catch{}
+      }
+
+      await createEvent({
+        title:eventTitle.trim(),
+        description:eventDescription.trim(),
+        category:eventCategory.trim()||'Meet',
+        venueName:eventVenue.trim(),
+        city:eventCity.trim(),
+        state:eventState.trim().toUpperCase(),
+        startsAt:parsed.toISOString(),
+        image:eventImage,
+        latitude,
+        longitude,
+      });
+      router.replace('/(tabs)/meets');
+    }
     catch(error:any){Alert.alert('Criar evento',error?.message ?? 'Não foi possível criar.')}finally{setSaving(false)}
   }
 
@@ -110,7 +179,7 @@ export default function CreateScreen(){
             keyboardType="url"
             placeholder={'Cole uma URL por linha\nhttps://site.com/foto1.jpg\nhttps://site.com/foto2.jpg'}
           />
-          <Text style={styles.urlHelp}>As imagens por URL serão copiadas para o Storage do StreetClub ao salvar.</Text>
+          <Text style={styles.urlHelp}>URLs externas ficam vinculadas diretamente ao projeto. Fotos da galeria são enviadas ao StreetClub.</Text>
           <Field label="Marca" value={make} onChangeText={setMake} placeholder="Nissan"/>
           <Field label="Modelo" value={model} onChangeText={setModel} placeholder="Silvia S15"/>
           <Field label="Versão" value={version} onChangeText={setVersion} placeholder="Spec-R"/>
@@ -129,8 +198,9 @@ export default function CreateScreen(){
         {mode==='post'&&<>
           <Text style={styles.label}>Foto</Text>
           <Pressable style={styles.postPhoto} onPress={async()=>{const list=await chooseImages(false);if(list[0])setPostImage(list[0])}}>
-            {postImage?<AppImage uri={postImage.uri} style={StyleSheet.absoluteFill}/>:<View style={styles.photoEmpty}><Ionicons name="camera-outline" size={32} color={theme.colors.accent}/><Text style={styles.photoTitle}>Selecionar foto</Text></View>}
+            {postImage?<AppImage uri={postImage.uri} style={StyleSheet.absoluteFill}/>:postImageUrl.trim()?<AppImage uri={postImageUrl.trim()} style={StyleSheet.absoluteFill}/>:<View style={styles.photoEmpty}><Ionicons name="camera-outline" size={32} color={theme.colors.accent}/><Text style={styles.photoTitle}>Selecionar foto</Text><Text style={styles.photoSub}>ou use uma URL abaixo</Text></View>}
           </Pressable>
+          <Field label="URL da foto (opcional)" value={postImageUrl} onChangeText={setPostImageUrl} autoCapitalize="none" autoCorrect={false} keyboardType="url" placeholder="https://site.com/foto.jpg"/>
           <Field label="Legenda" value={postCaption} onChangeText={setPostCaption} multiline placeholder="Conte sobre o projeto, a noite, a build..."/>
           <Text style={styles.label}>Carro relacionado</Text><View style={styles.chips}><Chip text="Nenhum" active={!postCarId} onPress={()=>setPostCarId(null)}/>{myCars.map((car)=><Chip key={car.id} text={car.make+' '+car.model} active={postCarId===car.id} onPress={()=>setPostCarId(car.id)}/>)}</View>
           <View style={styles.infoRow}><Ionicons name="location-outline" size={17} color={theme.colors.muted}/><Text style={styles.infoText}>{[profile?.city,profile?.state].filter(Boolean).join(', ')||'Localização do perfil'}</Text></View>
@@ -149,6 +219,14 @@ export default function CreateScreen(){
           <Field label="Local" value={eventVenue} onChangeText={setEventVenue} placeholder="Nome do local"/>
           <View style={styles.row}><View style={{flex:1}}><Field label="Cidade" value={eventCity} onChangeText={setEventCity} placeholder="Cascavel"/></View><View style={{width:82}}><Field label="UF" value={eventState} onChangeText={setEventState} placeholder="PR"/></View></View>
           <Field label="Data e horário" value={eventStarts} onChangeText={setEventStarts} placeholder="2026-10-04 19:00"/>
+          <Pressable style={[styles.mapLocation,eventLatitude!=null&&eventLongitude!=null&&styles.mapLocationReady]} onPress={()=>{void locateEvent();}} disabled={locatingEvent}>
+            <Ionicons name={eventLatitude!=null&&eventLongitude!=null?'location':'map-outline'} size={18} color={eventLatitude!=null&&eventLongitude!=null?theme.colors.white:theme.colors.accent}/>
+            <View style={{flex:1}}>
+              <Text style={[styles.mapLocationTitle,eventLatitude!=null&&eventLongitude!=null&&styles.mapLocationTitleReady]}>{locatingEvent?'Localizando...':eventLatitude!=null&&eventLongitude!=null?'Local marcado no mapa':'Localizar endereço no mapa'}</Text>
+              <Text style={[styles.mapLocationSub,eventLatitude!=null&&eventLongitude!=null&&styles.mapLocationSubReady]}>{eventLatitude!=null&&eventLongitude!=null?'O evento aparecerá como pin no mapa.':'Usa o local, cidade e UF informados acima.'}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={17} color={eventLatitude!=null&&eventLongitude!=null?theme.colors.white:theme.colors.muted2}/>
+          </Pressable>
           <PrimaryButton onPress={()=>{void saveEvent();}} disabled={saving} style={styles.save}>{saving?'Criando...':'Criar evento'}</PrimaryButton>
         </>}
       </ScrollView>
@@ -193,6 +271,12 @@ const styles=StyleSheet.create({
   postPhoto:{height:260,borderWidth:1,borderStyle:'dashed',borderColor:theme.colors.borderStrong,borderRadius:theme.radius.lg,overflow:'hidden',backgroundColor:theme.colors.surface},
   infoRow:{flexDirection:'row',alignItems:'center',gap:8,minHeight:44,borderBottomWidth:1,borderBottomColor:theme.colors.border},
   infoText:{color:theme.colors.muted,fontSize:11},
+  mapLocation:{minHeight:58,marginTop:16,borderWidth:1,borderColor:theme.colors.borderStrong,borderRadius:theme.radius.md,backgroundColor:theme.colors.surface,flexDirection:'row',alignItems:'center',gap:10,paddingHorizontal:13},
+  mapLocationReady:{backgroundColor:theme.colors.accent,borderColor:theme.colors.accent},
+  mapLocationTitle:{color:theme.colors.text,fontSize:11.5,fontWeight:'900'},
+  mapLocationTitleReady:{color:theme.colors.white},
+  mapLocationSub:{color:theme.colors.muted,fontSize:9,marginTop:3},
+  mapLocationSubReady:{color:'rgba(255,255,255,.75)'},
   save:{marginTop:24},
   hubHeader:{paddingHorizontal:18,paddingTop:10,paddingBottom:18},
   hubTitle:{color:theme.colors.text,fontSize:29,fontWeight:'900'},
