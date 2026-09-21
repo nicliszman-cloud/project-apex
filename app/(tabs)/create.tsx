@@ -228,8 +228,8 @@ function Chip({ active, text, onPress }: { active: boolean; text: string; onPres
   return <Pressable onPress={onPress} style={[styles.chip, active && styles.chipOn]}><Text style={[styles.chipText, active && styles.chipTextOn]}>{text}</Text></Pressable>;
 }
 
-function Field(props: any) {
-  return <View><Text style={styles.label}>{props.label}</Text><TextInput {...props} label={undefined} style={[styles.input, props.multiline && styles.multiline]} placeholderTextColor={theme.colors.muted} textAlignVertical={props.multiline ? 'top' : 'center'} /></View>;
+function Field({ label, multiline, ...props }: any) {
+  return <View><Text style={styles.label}>{label}</Text><TextInput {...props} multiline={multiline} style={[styles.input, multiline && styles.multiline]} placeholderTextColor={theme.colors.muted} textAlignVertical={multiline ? 'top' : 'center'} /></View>;
 }
 
 const styles = StyleSheet.create({
