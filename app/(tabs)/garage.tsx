@@ -1,11 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { AppImage } from '@/components/AppImage';
 import { SectionTabs } from '@/components/SectionTabs';
 import { useApp } from '@/context/AppContext';
+import { pickImages } from '@/lib/media';
 import { supabase } from '@/lib/supabase';
 import { theme } from '@/lib/theme';
 
@@ -16,8 +17,9 @@ export default function GarageScreen(){
   const {section}=useLocalSearchParams<{section?:string}>();
   const {width}=useWindowDimensions();
   const postCellSize=Math.floor((width-12)/3);
-  const {cars,posts,events,profile,myUserId,loading,refreshRemoteData}=useApp();
+  const {cars,posts,events,profile,myUserId,loading,refreshRemoteData,updateCover}=useApp();
   const [tab,setTab]=useState<ProfileTab>('Garagem');
+  const [changingCover,setChangingCover]=useState(false);
 
   useFocusEffect(
     useCallback(()=>{
@@ -28,6 +30,19 @@ export default function GarageScreen(){
   useEffect(()=>{
     if(section && tabs.includes(section as ProfileTab)) setTab(section as ProfileTab);
   },[section]);
+
+  async function changeCover(){
+    try{
+      const selected=await pickImages(false);
+      if(!selected[0]) return;
+      setChangingCover(true);
+      await updateCover(selected[0]);
+    }catch(error:any){
+      Alert.alert('Capa do perfil',error?.message ?? 'Não foi possível alterar a capa.');
+    }finally{
+      setChangingCover(false);
+    }
+  }
   const [followers,setFollowers]=useState(0);
   const [following,setFollowing]=useState(0);
 
@@ -58,6 +73,10 @@ export default function GarageScreen(){
           {hero ? <AppImage uri={hero} style={StyleSheet.absoluteFill} /> : <View style={styles.coverFallback}><Ionicons name="car-sport-outline" size={54} color={theme.colors.muted2}/></View>}
           <View style={styles.coverShade}/>
           <View style={styles.topActions}>
+            <Pressable style={styles.coverEditButton} onPress={()=>{void changeCover();}} disabled={changingCover}>
+              <Ionicons name={changingCover?'hourglass-outline':'camera'} size={17} color={theme.colors.white}/>
+              <Text style={styles.coverEditText}>{changingCover?'Enviando...':'Alterar capa'}</Text>
+            </Pressable>
             <Pressable style={styles.iconButton} onPress={()=>router.push('/menu')}><Ionicons name="menu-outline" size={21} color={theme.colors.text}/></Pressable>
           </View>
         </View>
@@ -115,7 +134,9 @@ const styles=StyleSheet.create({
   cover:{height:168,backgroundColor:theme.colors.surface,overflow:'hidden'},
   coverFallback:{...StyleSheet.absoluteFill,alignItems:'center',justifyContent:'center',backgroundColor:'#0A0B0D'},
   coverShade:{...StyleSheet.absoluteFill,backgroundColor:'rgba(0,0,0,.42)'},
-  topActions:{position:'absolute',top:12,right:14,flexDirection:'row'},
+  topActions:{position:'absolute',top:12,right:14,left:14,flexDirection:'row',alignItems:'center',justifyContent:'flex-end',gap:8},
+  coverEditButton:{height:38,paddingHorizontal:12,borderRadius:19,backgroundColor:'rgba(5,5,6,.72)',borderWidth:1,borderColor:'rgba(255,255,255,.15)',flexDirection:'row',alignItems:'center',gap:6},
+  coverEditText:{color:theme.colors.white,fontSize:9.5,fontWeight:'900'},
   iconButton:{width:40,height:40,borderRadius:20,backgroundColor:'rgba(5,5,6,.72)',borderWidth:1,borderColor:'rgba(255,255,255,.12)',alignItems:'center',justifyContent:'center'},
   identity:{paddingHorizontal:16,marginTop:-37,flexDirection:'row',alignItems:'flex-end'},
   avatar:{width:82,height:82,borderRadius:41,borderWidth:3,borderColor:theme.colors.background},
