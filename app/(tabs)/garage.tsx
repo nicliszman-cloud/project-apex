@@ -99,8 +99,8 @@ function Empty({icon,text,action,onPress}:{icon:React.ComponentProps<typeof Ioni
 const styles=StyleSheet.create({
   content:{paddingBottom:24},
   cover:{height:168,backgroundColor:theme.colors.surface,overflow:'hidden'},
-  coverFallback:{...StyleSheet.absoluteFillObject,alignItems:'center',justifyContent:'center',backgroundColor:'#0A0B0D'},
-  coverShade:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(0,0,0,.42)'},
+  coverFallback:{...StyleSheet.absoluteFill,alignItems:'center',justifyContent:'center',backgroundColor:'#0A0B0D'},
+  coverShade:{...StyleSheet.absoluteFill,backgroundColor:'rgba(0,0,0,.42)'},
   topActions:{position:'absolute',top:12,right:14,flexDirection:'row'},
   iconButton:{width:40,height:40,borderRadius:20,backgroundColor:'rgba(5,5,6,.72)',borderWidth:1,borderColor:'rgba(255,255,255,.12)',alignItems:'center',justifyContent:'center'},
   identity:{paddingHorizontal:16,marginTop:-37,flexDirection:'row',alignItems:'flex-end'},
