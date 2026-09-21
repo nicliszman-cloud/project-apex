@@ -126,10 +126,31 @@ export function AppProvider({ children }: PropsWithChildren) {
         supabase.from('swipes').select('target_car_id, action').eq('user_id', userId),
       ]);
 
-      const error =
-        profileResult.error || carResult.error || carPhotoResult.error || postResult.error ||
-        postLikeResult.error || commentResult.error || eventResult.error || attendeeResult.error || matchResult.error || swipeResult.error;
-      if (error) throw error;
+      const queryErrors = [
+        ['profiles', profileResult.error],
+        ['cars', carResult.error],
+        ['car_photos', carPhotoResult.error],
+        ['posts', postResult.error],
+        ['post_likes', postLikeResult.error],
+        ['comments', commentResult.error],
+        ['events', eventResult.error],
+        ['event_attendees', attendeeResult.error],
+        ['matches', matchResult.error],
+        ['swipes', swipeResult.error],
+      ].filter(([, error]) => Boolean(error));
+
+      for (const [table, error] of queryErrors) {
+        console.warn('StreetClub data load:', table, (error as any)?.message ?? error);
+      }
+
+      let carRows = carResult.data ?? [];
+      if (carResult.error?.code === '42703') {
+        const fallbackCars = await supabase
+          .from('cars')
+          .select('id, owner_id, make, model, model_year, engine, transmission, drivetrain, stock_hp, current_hp, category, city, state, cover_url, modifications, created_at')
+          .order('created_at', { ascending: false });
+        if (!fallbackCars.error) carRows = fallbackCars.data ?? [];
+      }
 
       const profileRows = profileResult.data ?? [];
       const profiles = new Map(profileRows.map((row: any) => [row.id, row]));
@@ -152,7 +173,7 @@ export function AppProvider({ children }: PropsWithChildren) {
         photosByCar.set(row.car_id, list);
       }
 
-      const mappedCars: Car[] = (carResult.data ?? []).map((row: any) => {
+      const mappedCars: Car[] = carRows.map((row: any) => {
         const owner: any = profiles.get(row.owner_id);
         const displayName = owner?.display_name || owner?.username || 'Driver';
         const storedPhotos = photosByCar.get(row.id) ?? [];
@@ -202,7 +223,7 @@ export function AppProvider({ children }: PropsWithChildren) {
           authorState: author?.state || null,
           carName: car ? `${car.make} ${car.model}` : 'Projeto',
           carId: row.car_id,
-          image: row.media_url,
+          image: row.media_url || car?.image || FALLBACK_CAR_IMAGE,
           caption: row.caption ?? '',
           likes: postLikes.length,
           comments: commentRows.filter((comment: any) => comment.post_id === row.id).length,
@@ -258,14 +279,10 @@ export function AppProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    loadRemoteData().catch(() => setLoading(false));
-
-    const postChannel = supabase
-      .channel('streetclub-posts-feed')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, () => {
-        void loadRemoteData();
-      })
-      .subscribe();
+    loadRemoteData().catch((error) => {
+      console.warn('StreetClub initial load:', error);
+      setLoading(false);
+    });
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user.id) {
@@ -283,7 +300,6 @@ export function AppProvider({ children }: PropsWithChildren) {
 
     return () => {
       data.subscription.unsubscribe();
-      void supabase!.removeChannel(postChannel);
     };
   }, [loadRemoteData, isDemo]);
 

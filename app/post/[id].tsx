@@ -37,6 +37,14 @@ export default function PostDetailScreen() {
 
   useEffect(() => { void loadComments(); }, [id]);
 
+  useEffect(() => {
+    if (!post) void refreshRemoteData();
+  }, [id]);
+
+  useEffect(() => {
+    if (post) setCaption(post.caption || '');
+  }, [post?.id, post?.caption]);
+
   async function send() {
     if (!supabase || !myUserId || !text.trim()) return;
     const body = text.trim();

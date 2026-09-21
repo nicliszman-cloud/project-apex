@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { ImageStyle, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
-import { resolveMediaCandidates } from '@/lib/media';
+import { resolveMediaCandidates, resolveSignedMediaUrl } from '@/lib/media';
 import { theme } from '@/lib/theme';
 
 type Props = {
@@ -31,12 +31,37 @@ export function AppImage({
 
   const candidatesKey = candidates.join('|');
   const [candidateIndex, setCandidateIndex] = useState(0);
+  const [signedFallback, setSignedFallback] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     setCandidateIndex(0);
-  }, [candidatesKey]);
+    setSignedFallback(null);
 
-  const resolved = candidates[candidateIndex];
+    async function prepareSignedFallback() {
+      const primary = await resolveSignedMediaUrl(uri);
+      if (!active) return;
+      if (primary) {
+        setSignedFallback(primary);
+        return;
+      }
+
+      const fallback = await resolveSignedMediaUrl(fallbackUri);
+      if (active && fallback) setSignedFallback(fallback);
+    }
+
+    void prepareSignedFallback();
+
+    return () => {
+      active = false;
+    };
+  }, [candidatesKey, uri, fallbackUri]);
+
+  const allCandidates = signedFallback
+    ? [...candidates, signedFallback].filter((value, index, array) => array.indexOf(value) === index)
+    : candidates;
+
+  const resolved = allCandidates[candidateIndex];
 
   if (!resolved) {
     return (
@@ -55,7 +80,7 @@ export function AppImage({
       transition={120}
       recyclingKey={resolved}
       accessibilityLabel={accessibilityLabel}
-      onError={() => setCandidateIndex((current) => current + 1)}
+      onError={() => setCandidateIndex((current) => Math.min(current + 1, allCandidates.length))}
     />
   );
 }

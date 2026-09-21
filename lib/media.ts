@@ -1,4 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
+import { File } from 'expo-file-system';
 import { supabase } from '@/lib/supabase';
 
 export type LocalImage = {
@@ -170,11 +171,39 @@ export function resolveMediaUrl(value?: string | null): string | null {
 export function storagePathFromPublicUrl(value?: string | null): string | null {
   if (!value) return null;
   const cleaned = cleanMediaValue(value);
-  if (!/^https?:/i.test(cleaned)) return cleaned.replace(/^\/+/, '').replace(/^media\//, '');
-  const marker = '/storage/v1/object/public/media/';
-  const index = cleaned.indexOf(marker);
-  if (index < 0) return null;
-  return decodeURIComponent(cleaned.slice(index + marker.length));
+
+  if (!/^https?:/i.test(cleaned)) {
+    return cleaned.replace(/^\/+/, '').replace(/^media\//, '');
+  }
+
+  const markers = [
+    '/storage/v1/object/public/media/',
+    '/storage/v1/object/sign/media/',
+    '/storage/v1/object/authenticated/media/',
+  ];
+
+  for (const marker of markers) {
+    const index = cleaned.indexOf(marker);
+    if (index >= 0) {
+      const raw = cleaned.slice(index + marker.length).split('?')[0];
+      return decodeURIComponent(raw);
+    }
+  }
+
+  return null;
+}
+
+export async function resolveSignedMediaUrl(value?: string | null): Promise<string | null> {
+  if (!supabase || !value) return null;
+  const path = storagePathFromPublicUrl(value);
+  if (!path) return null;
+
+  const { data, error } = await supabase.storage
+    .from('media')
+    .createSignedUrl(path, 60 * 60);
+
+  if (error || !data?.signedUrl) return null;
+  return data.signedUrl;
 }
 
 export async function uploadPublicImage(
@@ -186,12 +215,19 @@ export async function uploadPublicImage(
 
   const ext = extensionFor(image);
   const objectPath = `${userId}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-  const response = await fetch(image.uri);
-  if (!response.ok && !image.uri.startsWith('file:') && !image.uri.startsWith('content:')) {
-    throw new Error('Não foi possível ler a imagem selecionada.');
+
+  let arrayBuffer: ArrayBuffer;
+  try {
+    const localFile = new File(image.uri);
+    arrayBuffer = await localFile.arrayBuffer();
+  } catch {
+    const response = await fetch(image.uri);
+    if (!response.ok && !image.uri.startsWith('file:') && !image.uri.startsWith('content:')) {
+      throw new Error('Não foi possível ler a imagem selecionada.');
+    }
+    arrayBuffer = await response.arrayBuffer();
   }
 
-  const arrayBuffer = await response.arrayBuffer();
   if (!arrayBuffer.byteLength) throw new Error('A imagem selecionada está vazia.');
 
   const { error } = await supabase.storage

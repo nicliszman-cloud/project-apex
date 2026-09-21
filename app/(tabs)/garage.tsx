@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { AppImage } from '@/components/AppImage';
 import { SectionTabs } from '@/components/SectionTabs';
@@ -14,8 +14,14 @@ type ProfileTab=typeof tabs[number];
 
 export default function GarageScreen(){
   const {section}=useLocalSearchParams<{section?:string}>();
-  const {cars,posts,events,profile,myUserId,loading}=useApp();
+  const {cars,posts,events,profile,myUserId,loading,refreshRemoteData}=useApp();
   const [tab,setTab]=useState<ProfileTab>('Garagem');
+
+  useFocusEffect(
+    useCallback(()=>{
+      void refreshRemoteData();
+    },[refreshRemoteData])
+  );
 
   useEffect(()=>{
     if(section && tabs.includes(section as ProfileTab)) setTab(section as ProfileTab);
@@ -26,6 +32,7 @@ export default function GarageScreen(){
   const mine=useMemo(()=>cars.filter((car)=>car.ownerId===myUserId),[cars,myUserId]);
   const myPosts=useMemo(()=>posts.filter((post)=>post.authorId===myUserId),[posts,myUserId]);
   const myEvents=useMemo(()=>events.filter((event)=>event.organizerId===myUserId),[events,myUserId]);
+  const carsById=useMemo(()=>new Map(cars.map((car)=>[car.id,car])),[cars]);
   const location=[profile?.city,profile?.state].filter(Boolean).join(', ') || 'Brasil';
   const hero=mine[0]?.image || null;
 
@@ -83,7 +90,7 @@ export default function GarageScreen(){
 
         {tab==='Posts' && <View style={styles.section}>
           {myPosts.length===0 ? <Empty icon="images-outline" text="Você ainda não publicou nada." action="Criar post" onPress={()=>router.push('/(tabs)/create')}/> :
-            <View style={styles.postGrid}>{myPosts.map((post)=><Pressable key={post.id} style={styles.postCell} onPress={()=>router.push('/post/'+post.id)}><AppImage uri={post.image} style={StyleSheet.absoluteFill}/></Pressable>)}</View>}
+            <View style={styles.postGrid}>{myPosts.map((post)=><Pressable key={post.id} style={styles.postCell} onPress={()=>router.push('/post/'+post.id)}><AppImage uri={post.image} fallbackUri={post.carId?carsById.get(post.carId)?.image:null} style={StyleSheet.absoluteFill} placeholder={<Ionicons name="image-outline" size={24} color={theme.colors.muted2}/>}/></Pressable>)}</View>}
         </View>}
 
         {tab==='Eventos' && <View style={styles.section}>

@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { BrandLogo } from '@/components/BrandLogo';
 import { SearchBar } from '@/components/SearchBar';
@@ -20,6 +20,12 @@ export default function FeedScreen() {
   const [category, setCategory] = useState<HomeCategory>('Para você');
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshRemoteData();
+    }, [refreshRemoteData])
+  );
 
   const carsById = useMemo(() => new Map(cars.map((car) => [car.id, car])), [cars]);
 

@@ -92,19 +92,13 @@ export default function MeetsMapScreen() {
     }
 
     void loadCoordinates();
-
-    const channel = supabase
-      ? supabase
-          .channel('streetclub-map-events')
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => {
-            void loadCoordinates();
-          })
-          .subscribe()
-      : null;
+    const timer = setInterval(() => {
+      void loadCoordinates();
+    }, 15000);
 
     return () => {
       mounted = false;
-      if (channel && supabase) void supabase.removeChannel(channel);
+      clearInterval(timer);
     };
   }, []);
 
