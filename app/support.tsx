@@ -1,8 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { PRIVACY_CONTACT_URL } from '@/lib/legal';
 import { theme } from '@/lib/theme';
 
 export default function SupportScreen() {
@@ -22,6 +23,7 @@ export default function SupportScreen() {
         <SupportRow icon="construct-outline" title="Marketplace" body="Confira compatibilidade, condição da peça e detalhes da negociação antes de fechar negócio." onPress={() => router.push('/(tabs)/marketplace')} />
         <SupportRow icon="calendar-outline" title="Eventos" body="Organizadores e participantes devem seguir as regras do local e a legislação aplicável." onPress={() => router.push('/(tabs)/meets')} />
         <SupportRow icon="document-text-outline" title="Privacidade e termos" body="Consulte como os dados e as regras da comunidade são tratados." onPress={() => router.push('/legal')} />
+        <SupportRow icon="mail-outline" title="Contato de privacidade" body="Envie dúvidas ou solicitações relacionadas aos seus dados." onPress={() => { void Linking.openURL(PRIVACY_CONTACT_URL); }} />
       </ScrollView>
     </Screen>
   );

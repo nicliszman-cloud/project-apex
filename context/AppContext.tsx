@@ -50,6 +50,7 @@ type AppContextValue = {
   updateProfile: (values: ProfileUpdate) => Promise<void>;
   updateAvatar: (image: LocalImage) => Promise<void>;
   updateCover: (image: LocalImage) => Promise<void>;
+  deleteAccount: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -681,6 +682,28 @@ export function AppProvider({ children }: PropsWithChildren) {
     await updateProfile({ coverUrl });
   }
 
+  async function deleteAccount() {
+    if (isDemo) {
+      await signOut();
+      return;
+    }
+    if (!supabase || !myUserId) throw new Error('Sessão não encontrada.');
+
+    const { error } = await supabase.functions.invoke('delete-account', {
+      body: { confirm: true },
+    });
+    if (error) throw error;
+
+    await supabase.auth.signOut({ scope: 'local' });
+    setIsDemo(false);
+    setMyUserId(null);
+    setProfile(null);
+    setCars([]);
+    setPosts([]);
+    setEvents([]);
+    setMatches([]);
+  }
+
   async function signOut() {
     if (supabase) await supabase.auth.signOut();
     setIsDemo(false);
@@ -695,7 +718,7 @@ export function AppProvider({ children }: PropsWithChildren) {
   const value = useMemo(() => ({
     cars, posts, events, matches, likedCarIds, profile, myUserId, isDemo, loading,
     enterDemoMode, enterRealMode, refreshRemoteData: loadRemoteData, swipeCar, likeCar,
-    togglePostLike, toggleEvent, addCar, createPost, createEvent, updateProfile, updateAvatar, updateCover, signOut,
+    togglePostLike, toggleEvent, addCar, createPost, createEvent, updateProfile, updateAvatar, updateCover, deleteAccount, signOut,
   }), [cars, posts, events, matches, likedCarIds, profile, myUserId, isDemo, loading, loadRemoteData]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

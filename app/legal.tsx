@@ -1,7 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { ACCOUNT_DELETION_URL, PRIVACY_POLICY_URL } from '@/lib/legal';
 import { theme } from '@/lib/theme';
 
 export default function LegalScreen() {
@@ -41,6 +42,17 @@ export default function LegalScreen() {
           body="Você pode editar seus dados, bloquear outros usuários e excluir sua própria conta pelo aplicativo."
         />
 
+        <View style={styles.links}>
+          <Pressable style={styles.link} onPress={() => { void Linking.openURL(PRIVACY_POLICY_URL); }}>
+            <Text style={styles.linkText}>Política de Privacidade completa</Text>
+            <Ionicons name="open-outline" size={16} color={theme.colors.muted} />
+          </Pressable>
+          <Pressable style={styles.link} onPress={() => { void Linking.openURL(ACCOUNT_DELETION_URL); }}>
+            <Text style={styles.linkText}>Excluir conta e dados</Text>
+            <Ionicons name="open-outline" size={16} color={theme.colors.muted} />
+          </Pressable>
+        </View>
+
         <View style={styles.footer}>
           <Ionicons name="information-circle-outline" size={18} color={theme.colors.muted} />
           <Text style={styles.footerText}>Ao usar o StreetClub, você concorda em respeitar estas regras e as políticas aplicáveis ao serviço.</Text>
@@ -66,6 +78,9 @@ const styles = StyleSheet.create({
   copy: { flex: 1, marginLeft: 12 },
   title: { color: theme.colors.text, fontSize: 13, fontWeight: '900' },
   body: { color: theme.colors.muted, fontSize: 11, lineHeight: 17, marginTop: 5 },
+  links: { marginHorizontal: 16, marginTop: 8, borderRadius: theme.radius.md, overflow: 'hidden', borderWidth: 1, borderColor: theme.colors.border },
+  link: { minHeight: 48, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: theme.colors.border, backgroundColor: theme.colors.surface },
+  linkText: { flex: 1, color: theme.colors.textSoft, fontSize: 10.5, fontWeight: '800' },
   footer: { margin: 16, padding: 14, borderRadius: theme.radius.md, backgroundColor: theme.colors.surface, borderWidth: 1, borderColor: theme.colors.border, flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
   footerText: { color: theme.colors.textSoft, flex: 1, fontSize: 10.5, lineHeight: 16 },
 });

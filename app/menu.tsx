@@ -24,6 +24,7 @@ export default function MenuScreen() {
     { icon: 'chatbubbles-outline', label: 'Mensagens', action: () => router.push('/(tabs)/inbox') },
     { icon: 'notifications-outline', label: 'Notificações', action: () => router.push('/notifications') },
     { icon: 'settings-outline', label: 'Configurações', action: () => router.push('/settings') },
+    { icon: 'shield-checkmark-outline', label: 'Conta e privacidade', action: () => router.push('/account') },
     { icon: 'help-circle-outline', label: 'Ajuda e suporte', action: () => router.push('/support') },
   ];
 
